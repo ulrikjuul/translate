@@ -21,16 +21,24 @@ export const AutoLoadFiles: React.FC = () => {
   const fetchFileList = async () => {
     try {
       // Fetch a list of XLIFF files from the public folder
-      // We'll create a simple JSON file that lists available XLIFF files
       const response = await fetch('/xliff-files.json');
-      if (!response.ok) {
-        throw new Error('File list not found. Please create /public/xliff-files.json');
+      
+      // Check if the response is JSON (not HTML 404 page)
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        // File doesn't exist or server returned HTML
+        return [];
       }
+      
+      if (!response.ok) {
+        return [];
+      }
+      
       const fileList = await response.json();
       return fileList.files || [];
     } catch (error) {
-      console.error('Error fetching file list:', error);
-      // If no list file, try to load files by convention (e.g., trying known patterns)
+      // JSON parsing error or network error
+      // This is expected when the file doesn't exist
       return [];
     }
   };
@@ -92,7 +100,6 @@ export const AutoLoadFiles: React.FC = () => {
       
       // If no file list, show helpful message
       if (fileList.length === 0) {
-        console.info('No xliff-files.json found. Please create /public/xliff-files.json with your file list.');
         setErrors(['Please create /public/xliff-files.json with your XLIFF file list (see example below)']);
         setLoading(false);
         return;
