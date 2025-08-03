@@ -1,11 +1,11 @@
 import { create } from 'zustand';
-import type { XliffFile, ComparisonResult } from '../types/xliff';
+import type { XliffFile, ComparisonResult, FileName } from '../types/xliff';
 
 export interface AllStringsResult {
   id: string;
   source: string;
   target: string;
-  fromFile: 'file1' | 'file2' | 'file3' | 'file4';
+  fromFile: FileName;
   fileName?: string;
   note?: string;
   state?: string;
@@ -13,103 +13,118 @@ export interface AllStringsResult {
 }
 
 interface ComparisonStore {
-  file1: XliffFile | null;
-  file2: XliffFile | null;
-  file3: XliffFile | null;
-  file4: XliffFile | null;
-  file1Raw: string | null;
-  file2Raw: string | null;
-  file3Raw: string | null;
-  file4Raw: string | null;
+  files: Record<FileName, XliffFile | null>;
+  rawFiles: Record<FileName, string | null>;
   comparisonResults: ComparisonResult[];
   
-  setFile1: (file: XliffFile, rawContent?: string) => void;
-  setFile2: (file: XliffFile, rawContent?: string) => void;
-  setFile3: (file: XliffFile, rawContent?: string) => void;
-  setFile4: (file: XliffFile, rawContent?: string) => void;
+  setFile: (fileNum: number, file: XliffFile, rawContent?: string) => void;
+  getFile: (fileNum: number) => XliffFile | null;
+  getRawFile: (fileNum: number) => string | null;
   compareFiles: () => void;
-  selectVersion: (id: string, version: 'file1' | 'file2' | 'file3' | 'file4') => void;
+  selectVersion: (id: string, version: FileName) => void;
   getMergedFile: () => XliffFile | null;
   getAllStrings: () => AllStringsResult[];
   reset: () => void;
 }
 
+const createEmptyState = () => {
+  const files: Record<FileName, XliffFile | null> = {} as any;
+  const rawFiles: Record<FileName, string | null> = {} as any;
+  
+  for (let i = 1; i <= 10; i++) {
+    const key = `file${i}` as FileName;
+    files[key] = null;
+    rawFiles[key] = null;
+  }
+  
+  return { files, rawFiles };
+};
+
 export const useComparisonStore = create<ComparisonStore>((set, get) => ({
-  file1: null,
-  file2: null,
-  file3: null,
-  file4: null,
-  file1Raw: null,
-  file2Raw: null,
-  file3Raw: null,
-  file4Raw: null,
+  ...createEmptyState(),
   comparisonResults: [],
   
-  setFile1: (file, rawContent) => {
-    set({ file1: file, file1Raw: rawContent || null });
+  setFile: (fileNum, file, rawContent) => {
+    const key = `file${fileNum}` as FileName;
+    set(state => ({
+      files: { ...state.files, [key]: file },
+      rawFiles: { ...state.rawFiles, [key]: rawContent || null }
+    }));
     get().compareFiles();
   },
   
-  setFile2: (file, rawContent) => {
-    set({ file2: file, file2Raw: rawContent || null });
-    get().compareFiles();
+  getFile: (fileNum) => {
+    const key = `file${fileNum}` as FileName;
+    return get().files[key];
   },
   
-  setFile3: (file, rawContent) => {
-    set({ file3: file, file3Raw: rawContent || null });
-    get().compareFiles();
-  },
-  
-  setFile4: (file, rawContent) => {
-    set({ file4: file, file4Raw: rawContent || null });
-    get().compareFiles();
+  getRawFile: (fileNum) => {
+    const key = `file${fileNum}` as FileName;
+    return get().rawFiles[key];
   },
   
   compareFiles: () => {
-    const { file1, file2, file3, file4 } = get();
-    if (!file1 || !file2) return;
+    const { files } = get();
+    
+    // Get all loaded files
+    const loadedFiles = Object.entries(files)
+      .filter(([_, file]) => file !== null) as [FileName, XliffFile][];
+    
+    if (loadedFiles.length < 2) return;
     
     const results: ComparisonResult[] = [];
-    const processedSources = new Set<string>();
     
     // Process all files to find unique source strings
     const allSources = new Set<string>();
-    file1.transUnits.forEach(u => allSources.add(u.source));
-    file2.transUnits.forEach(u => allSources.add(u.source));
-    if (file3) file3.transUnits.forEach(u => allSources.add(u.source));
-    if (file4) file4.transUnits.forEach(u => allSources.add(u.source));
+    loadedFiles.forEach(([_, file]) => {
+      file.transUnits.forEach(u => allSources.add(u.source));
+    });
     
     // Compare all unique source strings
     allSources.forEach(source => {
-      const unit1 = file1.transUnits.find(u => u.source === source);
-      const unit2 = file2.transUnits.find(u => u.source === source);
-      const unit3 = file3?.transUnits.find(u => u.source === source);
-      const unit4 = file4?.transUnits.find(u => u.source === source);
-      
-      const inFiles: ('file1' | 'file2' | 'file3' | 'file4')[] = [];
-      if (unit1) inFiles.push('file1');
-      if (unit2) inFiles.push('file2');
-      if (unit3) inFiles.push('file3');
-      if (unit4) inFiles.push('file4');
-      
-      const targets = [unit1?.target, unit2?.target, unit3?.target, unit4?.target].filter(Boolean);
-      const allSame = targets.length > 1 && targets.every(t => t === targets[0]);
-      
-      results.push({
-        id: unit1?.id || unit2?.id || unit3?.id || unit4?.id || '',
+      const result: ComparisonResult = {
+        id: '',
         source,
-        file1Target: unit1?.target,
-        file2Target: unit2?.target,
-        file3Target: unit3?.target,
-        file4Target: unit4?.target,
-        isDifferent: !allSame && targets.length > 1,
-        file1Only: inFiles.length === 1 && inFiles[0] === 'file1',
-        file2Only: inFiles.length === 1 && inFiles[0] === 'file2',
-        file3Only: inFiles.length === 1 && inFiles[0] === 'file3',
-        file4Only: inFiles.length === 1 && inFiles[0] === 'file4',
-        inFiles,
-        selectedVersion: allSame ? 'file1' : undefined
-      });
+        isDifferent: false,
+        inFiles: []
+      };
+      
+      const targets: (string | undefined)[] = [];
+      
+      // Check each file for this source
+      for (let i = 1; i <= 10; i++) {
+        const key = `file${i}` as FileName;
+        const file = files[key];
+        if (file) {
+          const unit = file.transUnits.find(u => u.source === source);
+          if (unit) {
+            result[`${key}Target` as keyof ComparisonResult] = unit.target as any;
+            result.inFiles.push(key);
+            targets.push(unit.target);
+            if (!result.id) result.id = unit.id;
+          }
+        }
+      }
+      
+      // Check if all targets are the same
+      const uniqueTargets = targets.filter(Boolean);
+      const allSame = uniqueTargets.length > 1 && 
+        uniqueTargets.every(t => t === uniqueTargets[0]);
+      
+      result.isDifferent = !allSame && uniqueTargets.length > 1;
+      
+      // Set "only" flags
+      if (result.inFiles.length === 1) {
+        const onlyFile = result.inFiles[0];
+        result[`${onlyFile}Only` as keyof ComparisonResult] = true as any;
+      }
+      
+      // Set default selected version if all are the same
+      if (allSame && result.inFiles.length > 0) {
+        result.selectedVersion = result.inFiles[0];
+      }
+      
+      results.push(result);
     });
     
     set({ comparisonResults: results });
@@ -124,22 +139,28 @@ export const useComparisonStore = create<ComparisonStore>((set, get) => ({
   },
   
   getMergedFile: () => {
-    const { file1, file2, comparisonResults } = get();
-    if (!file1 || !file2) return null;
+    const { files, comparisonResults } = get();
+    
+    // Find first loaded file for metadata
+    const firstFile = Object.values(files).find(f => f !== null);
+    if (!firstFile) return null;
     
     const mergedTransUnits = comparisonResults.map(result => {
-      const selectedFile = result.selectedVersion === 'file1' ? file1 : file2;
-      // Find unit by source string instead of ID
-      const unit = selectedFile.transUnits.find(u => u.source === result.source);
+      if (!result.selectedVersion) {
+        // If no version selected, use first available
+        result.selectedVersion = result.inFiles[0];
+      }
+      
+      const selectedFile = files[result.selectedVersion];
+      const unit = selectedFile?.transUnits.find(u => u.source === result.source);
       
       if (!unit) {
         // Fallback: create unit from comparison result
+        const targetKey = `${result.selectedVersion}Target` as keyof ComparisonResult;
         return {
           id: result.id,
           source: result.source,
-          target: result.selectedVersion === 'file1' 
-            ? result.file1Target || '' 
-            : result.file2Target || ''
+          target: (result[targetKey] as string) || ''
         };
       }
       
@@ -147,93 +168,51 @@ export const useComparisonStore = create<ComparisonStore>((set, get) => ({
     });
     
     return {
-      ...file1,
+      ...firstFile,
       transUnits: mergedTransUnits
     };
   },
   
   getAllStrings: () => {
-    const { file1, file2, file3, file4 } = get();
+    const { files } = get();
     const allStrings: AllStringsResult[] = [];
     
-    // Add all strings from file1
-    if (file1) {
-      file1.transUnits.forEach(unit => {
-        allStrings.push({
-          id: unit.id,
-          source: unit.source,
-          target: unit.target,
-          fromFile: 'file1',
-          fileName: file1.original,
-          note: unit.note,
-          state: unit.state,
-          rawXml: unit.rawXml
+    // Add all strings from all files
+    Object.entries(files).forEach(([key, file]) => {
+      if (file) {
+        file.transUnits.forEach(unit => {
+          allStrings.push({
+            id: unit.id,
+            source: unit.source,
+            target: unit.target,
+            fromFile: key as FileName,
+            fileName: file.original,
+            note: unit.note,
+            state: unit.state,
+            rawXml: unit.rawXml
+          });
         });
-      });
-    }
-    
-    // Add all strings from file2
-    if (file2) {
-      file2.transUnits.forEach(unit => {
-        allStrings.push({
-          id: unit.id,
-          source: unit.source,
-          target: unit.target,
-          fromFile: 'file2',
-          fileName: file2.original,
-          note: unit.note,
-          state: unit.state,
-          rawXml: unit.rawXml
-        });
-      });
-    }
-    
-    // Add all strings from file3
-    if (file3) {
-      file3.transUnits.forEach(unit => {
-        allStrings.push({
-          id: unit.id,
-          source: unit.source,
-          target: unit.target,
-          fromFile: 'file3',
-          fileName: file3.original,
-          note: unit.note,
-          state: unit.state,
-          rawXml: unit.rawXml
-        });
-      });
-    }
-    
-    // Add all strings from file4
-    if (file4) {
-      file4.transUnits.forEach(unit => {
-        allStrings.push({
-          id: unit.id,
-          source: unit.source,
-          target: unit.target,
-          fromFile: 'file4',
-          fileName: file4.original,
-          note: unit.note,
-          state: unit.state,
-          rawXml: unit.rawXml
-        });
-      });
-    }
+      }
+    });
     
     return allStrings;
   },
   
   reset: () => {
     set({
-      file1: null,
-      file2: null,
-      file3: null,
-      file4: null,
-      file1Raw: null,
-      file2Raw: null,
-      file3Raw: null,
-      file4Raw: null,
+      ...createEmptyState(),
       comparisonResults: []
     });
   }
 }));
+
+// Helper hooks for backward compatibility and easier access
+export const useFile = (fileNum: number) => {
+  const store = useComparisonStore();
+  return store.getFile(fileNum);
+};
+
+export const useRawFile = (fileNum: number) => {
+  const store = useComparisonStore();
+  return store.getRawFile(fileNum);
+};

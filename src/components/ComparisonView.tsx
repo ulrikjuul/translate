@@ -28,22 +28,41 @@ import {
 } from '@mui/material';
 import { Search, Clear } from '@mui/icons-material';
 import { useComparisonStore } from '../store/useComparisonStore';
-import type { ComparisonResult } from '../types/xliff';
+import type { ComparisonResult, FileName } from '../types/xliff';
 
 type Order = 'asc' | 'desc';
-type OrderBy = 'id' | 'status' | 'source' | 'file1Target' | 'file2Target' | 'file3Target' | 'file4Target';
+type OrderBy = 'id' | 'status' | 'source' | FileName;
+
+const FILE_COLORS = {
+  file1: 'info',
+  file2: 'warning',
+  file3: 'secondary',
+  file4: 'success',
+  file5: 'error',
+  file6: 'primary',
+  file7: 'info',
+  file8: 'warning',
+  file9: 'secondary',
+  file10: 'success'
+} as const;
 
 export const ComparisonView: React.FC = () => {
-  const { comparisonResults, selectVersion, file1, file2, file3, file4, file1Raw, file2Raw, file3Raw, file4Raw } = useComparisonStore();
+  const store = useComparisonStore();
+  const { comparisonResults, selectVersion, files, rawFiles } = store;
   const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'different' | 'file1Only' | 'file2Only' | 'file3Only' | 'file4Only'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'different' | FileName>('all');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [order, setOrder] = useState<Order>('asc');
   const [orderBy, setOrderBy] = useState<OrderBy>('id');
   const [includeFileInfo, setIncludeFileInfo] = useState(false);
   const [searchInRaw, setSearchInRaw] = useState(false);
+  
+  // Get loaded files
+  const loadedFiles = Object.entries(files)
+    .filter(([_, file]) => file !== null)
+    .map(([key]) => key as FileName);
   
   const handleRequestSort = (property: OrderBy) => {
     const isAsc = orderBy === property && order === 'asc';
@@ -68,29 +87,31 @@ export const ComparisonView: React.FC = () => {
     let aValue: any;
     let bValue: any;
 
-    switch (orderBy) {
-      case 'status':
-        aValue = a.file1Only ? 'file1Only' : a.file2Only ? 'file2Only' : a.isDifferent ? 'different' : 'same';
-        bValue = b.file1Only ? 'file1Only' : b.file2Only ? 'file2Only' : b.isDifferent ? 'different' : 'same';
-        break;
-      default:
-        aValue = a[orderBy] || '';
-        bValue = b[orderBy] || '';
+    if (orderBy === 'status') {
+      // Sort by number of files first, then by difference status
+      const aFileCount = a.inFiles.length;
+      const bFileCount = b.inFiles.length;
+      if (aFileCount !== bFileCount) return bFileCount - aFileCount;
+      
+      aValue = a.isDifferent ? 'different' : 'same';
+      bValue = b.isDifferent ? 'different' : 'same';
+    } else if (orderBy.startsWith('file')) {
+      const targetKey = `${orderBy}Target` as keyof ComparisonResult;
+      aValue = a[targetKey] || '';
+      bValue = b[targetKey] || '';
+    } else {
+      aValue = a[orderBy as keyof ComparisonResult] || '';
+      bValue = b[orderBy as keyof ComparisonResult] || '';
     }
 
-    if (bValue < aValue) {
-      return -1;
-    }
-    if (bValue > aValue) {
-      return 1;
-    }
+    if (bValue < aValue) return -1;
+    if (bValue > aValue) return 1;
     return 0;
   };
 
   const filteredResults = comparisonResults.filter(result => {
     const searchLower = searchTerm.toLowerCase().trim();
     
-    // If no search term, show all
     if (!searchLower) return true;
     
     let matchesSearch = false;
@@ -98,65 +119,48 @@ export const ComparisonView: React.FC = () => {
     // Standard search in parsed fields
     matchesSearch = 
       (result.id || '').toLowerCase().includes(searchLower) ||
-      (result.source || '').toLowerCase().includes(searchLower) ||
-      (result.file1Target || '').toLowerCase().includes(searchLower) ||
-      (result.file2Target || '').toLowerCase().includes(searchLower) ||
-      (result.file3Target || '').toLowerCase().includes(searchLower) ||
-      (result.file4Target || '').toLowerCase().includes(searchLower);
+      (result.source || '').toLowerCase().includes(searchLower);
     
-    // Also search in file metadata if enabled
-    if (includeFileInfo && !matchesSearch) {
-      const file1Match = file1 && (
-        (file1.original || '').toLowerCase().includes(searchLower) ||
-        file1.sourceLanguage.toLowerCase().includes(searchLower) ||
-        file1.targetLanguage.toLowerCase().includes(searchLower)
-      );
-      const file2Match = file2 && (
-        (file2.original || '').toLowerCase().includes(searchLower) ||
-        file2.sourceLanguage.toLowerCase().includes(searchLower) ||
-        file2.targetLanguage.toLowerCase().includes(searchLower)
-      );
-      const file3Match = file3 && (
-        (file3.original || '').toLowerCase().includes(searchLower) ||
-        file3.sourceLanguage.toLowerCase().includes(searchLower) ||
-        file3.targetLanguage.toLowerCase().includes(searchLower)
-      );
-      const file4Match = file4 && (
-        (file4.original || '').toLowerCase().includes(searchLower) ||
-        file4.sourceLanguage.toLowerCase().includes(searchLower) ||
-        file4.targetLanguage.toLowerCase().includes(searchLower)
-      );
-      matchesSearch = !!(file1Match || file2Match || file3Match || file4Match);
+    // Search in all file targets
+    for (let i = 1; i <= 10; i++) {
+      const targetKey = `file${i}Target` as keyof ComparisonResult;
+      const target = result[targetKey] as string | undefined;
+      if (target && target.toLowerCase().includes(searchLower)) {
+        matchesSearch = true;
+        break;
+      }
     }
     
-    // If searching in raw XML content, show ALL translations when search term is found anywhere
+    // Search in file metadata if enabled
+    if (includeFileInfo && !matchesSearch) {
+      for (const fileName of loadedFiles) {
+        const file = files[fileName];
+        if (file && (
+          (file.original || '').toLowerCase().includes(searchLower) ||
+          file.sourceLanguage.toLowerCase().includes(searchLower) ||
+          file.targetLanguage.toLowerCase().includes(searchLower)
+        )) {
+          matchesSearch = true;
+          break;
+        }
+      }
+    }
+    
+    // Search in raw XML content
     if (searchInRaw && !matchesSearch) {
-      // When this option is checked, show ALL translations if the search term
-      // appears ANYWHERE in ANY of the raw XLIFF files
-      // This is useful for finding all translations when searching for XML attributes,
-      // states, or other metadata that might not be in the parsed fields
-      
-      const rawContainsSearch = 
-        (file1Raw && file1Raw.toLowerCase().includes(searchLower)) ||
-        (file2Raw && file2Raw.toLowerCase().includes(searchLower)) ||
-        (file3Raw && file3Raw.toLowerCase().includes(searchLower)) ||
-        (file4Raw && file4Raw.toLowerCase().includes(searchLower));
-      
-      if (rawContainsSearch) {
-        // The search term exists somewhere in the raw files
-        // Show all translations since we can't easily determine which specific
-        // trans-units contain the term in their XML structure
-        matchesSearch = true;
+      for (const fileName of loadedFiles) {
+        const raw = rawFiles[fileName];
+        if (raw && raw.toLowerCase().includes(searchLower)) {
+          matchesSearch = true;
+          break;
+        }
       }
     }
     
     const matchesFilter = 
       filterType === 'all' ||
       (filterType === 'different' && result.isDifferent && result.inFiles.length > 1) ||
-      (filterType === 'file1Only' && result.file1Only) ||
-      (filterType === 'file2Only' && result.file2Only) ||
-      (filterType === 'file3Only' && result.file3Only) ||
-      (filterType === 'file4Only' && result.file4Only);
+      (filterType.startsWith('file') && result[`${filterType}Only` as keyof ComparisonResult]);
     
     return matchesSearch && matchesFilter;
   });
@@ -176,7 +180,6 @@ export const ComparisonView: React.FC = () => {
     const trimmedSearch = searchInput.trim();
     setSearchTerm(trimmedSearch);
     setPage(0);
-    console.log('Searching for:', trimmedSearch);
   };
 
   const handleClearSearch = () => {
@@ -192,21 +195,18 @@ export const ComparisonView: React.FC = () => {
   };
   
   const getStatusChip = (result: ComparisonResult) => {
-    const getFileLabel = (fileNum: 1 | 2 | 3 | 4) => {
-      const fileData = fileNum === 1 ? file1 : fileNum === 2 ? file2 : fileNum === 3 ? file3 : file4;
-      return fileData?.fileIdentifier || `File ${fileNum}`;
-    };
-    
-    if (result.file1Only) return <Chip label={`${getFileLabel(1)} Only`} color="info" size="small" />;
-    if (result.file2Only) return <Chip label={`${getFileLabel(2)} Only`} color="warning" size="small" />;
-    if (result.file3Only) return <Chip label={`${getFileLabel(3)} Only`} color="secondary" size="small" />;
-    if (result.file4Only) return <Chip label={`${getFileLabel(4)} Only`} color="default" size="small" />;
-    if (result.inFiles.length === 2 && !result.isDifferent) {
-      const filesText = result.inFiles.join(' & ');
-      return <Chip label={`Same in ${filesText}`} color="success" size="small" />;
+    if (result.inFiles.length === 1) {
+      const onlyFile = result.inFiles[0];
+      const file = files[onlyFile];
+      const label = `${file?.fileIdentifier || onlyFile} Only`;
+      return <Chip label={label} color={FILE_COLORS[onlyFile] as any} size="small" />;
     }
-    if (result.isDifferent) return <Chip label="Different" color="error" size="small" />;
-    return <Chip label="Same in all" color="success" size="small" />;
+    
+    if (result.isDifferent) {
+      return <Chip label={`Different (${result.inFiles.length} files)`} color="error" size="small" />;
+    }
+    
+    return <Chip label={`Same (${result.inFiles.length} files)`} color="success" size="small" />;
   };
   
   if (comparisonResults.length === 0) return null;
@@ -216,11 +216,13 @@ export const ComparisonView: React.FC = () => {
     totalUnique: comparisonResults.length,
     identical: comparisonResults.filter(r => !r.isDifferent && r.inFiles.length > 1).length,
     different: comparisonResults.filter(r => r.isDifferent).length,
-    file1Only: comparisonResults.filter(r => r.file1Only).length,
-    file2Only: comparisonResults.filter(r => r.file2Only).length,
-    file3Only: comparisonResults.filter(r => r.file3Only).length,
-    file4Only: comparisonResults.filter(r => r.file4Only).length,
+    fileOnlyCounts: {} as Record<FileName, number>
   };
+  
+  loadedFiles.forEach(fileName => {
+    const onlyKey = `${fileName}Only` as keyof ComparisonResult;
+    stats.fileOnlyCounts[fileName] = comparisonResults.filter(r => r[onlyKey]).length;
+  });
   
   return (
     <Box>
@@ -231,7 +233,7 @@ export const ComparisonView: React.FC = () => {
               Translation Comparison
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {comparisonResults.length} unique source strings compared
+              {comparisonResults.length} unique source strings compared across {loadedFiles.length} files
             </Typography>
           </Stack>
           <Stack spacing={1} alignItems="flex-end">
@@ -250,84 +252,52 @@ export const ComparisonView: React.FC = () => {
             )}
           </Stack>
         </Stack>
-        {(file1 || file2 || file3 || file4) && (
-          <>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} flexWrap="wrap">
-              {file1 && (
-                <Chip
-                  label={`${file1.fileIdentifier || 'File 1'}: ${file1.original || 'Unnamed'} (${file1.sourceLanguage} → ${file1.targetLanguage}) - ${file1.transUnits.length} strings`}
-                  variant="filled"
-                  color="info"
-                  size="small"
-                />
-              )}
-              {file2 && (
-                <Chip
-                  label={`${file2.fileIdentifier || 'File 2'}: ${file2.original || 'Unnamed'} (${file2.sourceLanguage} → ${file2.targetLanguage}) - ${file2.transUnits.length} strings`}
-                  variant="filled"
-                  color="warning"
-                  size="small"
-                />
-              )}
-              {file3 && (
-                <Chip
-                  label={`${file3.fileIdentifier || 'File 3'}: ${file3.original || 'Unnamed'} (${file3.sourceLanguage} → ${file3.targetLanguage}) - ${file3.transUnits.length} strings`}
-                  variant="filled"
-                  color="secondary"
-                  size="small"
-                />
-              )}
-              {file4 && (
-                <Chip
-                  label={`${file4.fileIdentifier || 'File 4'}: ${file4.original || 'Unnamed'} (${file4.sourceLanguage} → ${file4.targetLanguage}) - ${file4.transUnits.length} strings`}
-                  variant="filled"
-                  color="default"
-                  size="small"
-                />
-              )}
-            </Stack>
-            <Paper elevation={1} sx={{ p: 2, bgcolor: 'background.default' }}>
-              <Typography variant="subtitle2" gutterBottom>
-                Comparison Statistics
+        
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} flexWrap="wrap">
+          {loadedFiles.map(fileName => {
+            const file = files[fileName];
+            if (!file) return null;
+            return (
+              <Chip
+                key={fileName}
+                label={`${file.fileIdentifier || fileName}: ${file.transUnits.length} strings`}
+                variant="filled"
+                color={FILE_COLORS[fileName] as any}
+                size="small"
+              />
+            );
+          })}
+        </Stack>
+        
+        <Paper elevation={1} sx={{ p: 2, bgcolor: 'background.default' }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Comparison Statistics
+          </Typography>
+          <Stack direction="row" spacing={3} flexWrap="wrap">
+            <Typography variant="body2">
+              <strong>Total unique:</strong> {stats.totalUnique}
+            </Typography>
+            {stats.identical > 0 && (
+              <Typography variant="body2" color="success.main">
+                <strong>Identical:</strong> {stats.identical}
               </Typography>
-              <Stack direction="row" spacing={3} flexWrap="wrap">
-                <Typography variant="body2">
-                  <strong>Total unique strings:</strong> {stats.totalUnique}
+            )}
+            {stats.different > 0 && (
+              <Typography variant="body2" color="error.main">
+                <strong>Different:</strong> {stats.different}
+              </Typography>
+            )}
+            {Object.entries(stats.fileOnlyCounts).map(([fileName, count]) => {
+              if (count === 0) return null;
+              const file = files[fileName as FileName];
+              return (
+                <Typography key={fileName} variant="body2" color={`${FILE_COLORS[fileName as FileName]}.main`}>
+                  <strong>{file?.fileIdentifier || fileName} only:</strong> {count}
                 </Typography>
-                {stats.identical > 0 && (
-                  <Typography variant="body2" color="success.main">
-                    <strong>Identical:</strong> {stats.identical}
-                  </Typography>
-                )}
-                {stats.different > 0 && (
-                  <Typography variant="body2" color="error.main">
-                    <strong>Different:</strong> {stats.different}
-                  </Typography>
-                )}
-                {stats.file1Only > 0 && (
-                  <Typography variant="body2" color="info.main">
-                    <strong>{file1?.fileIdentifier || 'File 1'} only:</strong> {stats.file1Only}
-                  </Typography>
-                )}
-                {stats.file2Only > 0 && (
-                  <Typography variant="body2" color="warning.main">
-                    <strong>{file2?.fileIdentifier || 'File 2'} only:</strong> {stats.file2Only}
-                  </Typography>
-                )}
-                {stats.file3Only > 0 && (
-                  <Typography variant="body2" color="secondary.main">
-                    <strong>{file3?.fileIdentifier || 'File 3'} only:</strong> {stats.file3Only}
-                  </Typography>
-                )}
-                {stats.file4Only > 0 && (
-                  <Typography variant="body2" color="text.secondary">
-                    <strong>{file4?.fileIdentifier || 'File 4'} only:</strong> {stats.file4Only}
-                  </Typography>
-                )}
-              </Stack>
-            </Paper>
-          </>
-        )}
+              );
+            })}
+          </Stack>
+        </Paper>
       </Stack>
       
       <Stack spacing={2} sx={{ mb: 3 }}>
@@ -375,10 +345,14 @@ export const ComparisonView: React.FC = () => {
             >
               <MenuItem value="all">All Translations</MenuItem>
               <MenuItem value="different">Different Only</MenuItem>
-              <MenuItem value="file1Only">{file1?.fileIdentifier || 'File 1'} Only</MenuItem>
-              <MenuItem value="file2Only">{file2?.fileIdentifier || 'File 2'} Only</MenuItem>
-              {file3 && <MenuItem value="file3Only">{file3.fileIdentifier || 'File 3'} Only</MenuItem>}
-              {file4 && <MenuItem value="file4Only">{file4.fileIdentifier || 'File 4'} Only</MenuItem>}
+              {loadedFiles.map(fileName => {
+                const file = files[fileName];
+                return (
+                  <MenuItem key={fileName} value={`${fileName}Only`}>
+                    {file?.fileIdentifier || fileName} Only
+                  </MenuItem>
+                );
+              })}
             </Select>
           </FormControl>
         </Stack>
@@ -406,8 +380,8 @@ export const ComparisonView: React.FC = () => {
         </Stack>
       </Stack>
       
-      <TableContainer component={Paper}>
-        <Table>
+      <TableContainer component={Paper} sx={{ maxHeight: '70vh' }}>
+        <Table stickyHeader size="small">
           <TableHead>
             <TableRow>
               <TableCell>
@@ -428,7 +402,7 @@ export const ComparisonView: React.FC = () => {
                   Status
                 </TableSortLabel>
               </TableCell>
-              <TableCell>
+              <TableCell sx={{ minWidth: 200 }}>
                 <TableSortLabel
                   active={orderBy === 'source'}
                   direction={orderBy === 'source' ? order : 'asc'}
@@ -437,47 +411,21 @@ export const ComparisonView: React.FC = () => {
                   Source
                 </TableSortLabel>
               </TableCell>
-              <TableCell>
-                <TableSortLabel
-                  active={orderBy === 'file1Target'}
-                  direction={orderBy === 'file1Target' ? order : 'asc'}
-                  onClick={() => handleRequestSort('file1Target')}
-                >
-                  {file1?.fileIdentifier || 'File 1'} Translation
-                </TableSortLabel>
-              </TableCell>
-              <TableCell>
-                <TableSortLabel
-                  active={orderBy === 'file2Target'}
-                  direction={orderBy === 'file2Target' ? order : 'asc'}
-                  onClick={() => handleRequestSort('file2Target')}
-                >
-                  {file2?.fileIdentifier || 'File 2'} Translation
-                </TableSortLabel>
-              </TableCell>
-              {file3 && (
-                <TableCell>
-                  <TableSortLabel
-                    active={orderBy === 'file3Target'}
-                    direction={orderBy === 'file3Target' ? order : 'asc'}
-                    onClick={() => handleRequestSort('file3Target')}
-                  >
-                    {file3?.fileIdentifier || 'File 3'} Translation
-                  </TableSortLabel>
-                </TableCell>
-              )}
-              {file4 && (
-                <TableCell>
-                  <TableSortLabel
-                    active={orderBy === 'file4Target'}
-                    direction={orderBy === 'file4Target' ? order : 'asc'}
-                    onClick={() => handleRequestSort('file4Target')}
-                  >
-                    {file4?.fileIdentifier || 'File 4'} Translation
-                  </TableSortLabel>
-                </TableCell>
-              )}
-              <TableCell align="center">Select Version</TableCell>
+              {loadedFiles.map(fileName => {
+                const file = files[fileName];
+                return (
+                  <TableCell key={fileName} sx={{ minWidth: 200 }}>
+                    <TableSortLabel
+                      active={orderBy === fileName}
+                      direction={orderBy === fileName ? order : 'asc'}
+                      onClick={() => handleRequestSort(fileName)}
+                    >
+                      {file?.fileIdentifier || fileName}
+                    </TableSortLabel>
+                  </TableCell>
+                );
+              })}
+              <TableCell align="center" sx={{ minWidth: 150 }}>Select Version</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -488,81 +436,44 @@ export const ComparisonView: React.FC = () => {
                   <TableCell>{result.id}</TableCell>
                   <TableCell>{getStatusChip(result)}</TableCell>
                   <TableCell>{result.source}</TableCell>
-                  <TableCell>
-                    <Box sx={{ 
-                      backgroundColor: result.selectedVersion === 'file1' ? 'action.selected' : 'transparent',
-                      p: 1,
-                      borderRadius: 1
-                    }}>
-                      {result.file1Target || '-'}
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ 
-                      backgroundColor: result.selectedVersion === 'file2' ? 'action.selected' : 'transparent',
-                      p: 1,
-                      borderRadius: 1
-                    }}>
-                      {result.file2Target || '-'}
-                    </Box>
-                  </TableCell>
-                  {file3 && (
-                    <TableCell>
-                      <Box sx={{ 
-                        backgroundColor: result.selectedVersion === 'file3' ? 'action.selected' : 'transparent',
-                        p: 1,
-                        borderRadius: 1
-                      }}>
-                        {result.file3Target || '-'}
-                      </Box>
-                    </TableCell>
-                  )}
-                  {file4 && (
-                    <TableCell>
-                      <Box sx={{ 
-                        backgroundColor: result.selectedVersion === 'file4' ? 'action.selected' : 'transparent',
-                        p: 1,
-                        borderRadius: 1
-                      }}>
-                        {result.file4Target || '-'}
-                      </Box>
-                    </TableCell>
-                  )}
+                  {loadedFiles.map(fileName => {
+                    const targetKey = `${fileName}Target` as keyof ComparisonResult;
+                    const target = result[targetKey] as string | undefined;
+                    return (
+                      <TableCell key={fileName}>
+                        <Box sx={{ 
+                          backgroundColor: result.selectedVersion === fileName ? 'action.selected' : 'transparent',
+                          p: 1,
+                          borderRadius: 1
+                        }}>
+                          {target || '-'}
+                        </Box>
+                      </TableCell>
+                    );
+                  })}
                   <TableCell align="center">
-                    {(result.file1Target || result.file2Target || result.file3Target || result.file4Target) && (
+                    {result.inFiles.length > 0 && (
                       <RadioGroup
                         row
                         value={result.selectedVersion || ''}
-                        onChange={(e) => selectVersion(result.id, e.target.value as 'file1' | 'file2' | 'file3' | 'file4')}
+                        onChange={(e) => selectVersion(result.id, e.target.value as FileName)}
                       >
-                        {result.file1Target && (
-                          <FormControlLabel
-                            value="file1"
-                            control={<Radio size="small" />}
-                            label="1"
-                          />
-                        )}
-                        {result.file2Target && (
-                          <FormControlLabel
-                            value="file2"
-                            control={<Radio size="small" />}
-                            label="2"
-                          />
-                        )}
-                        {result.file3Target && (
-                          <FormControlLabel
-                            value="file3"
-                            control={<Radio size="small" />}
-                            label="3"
-                          />
-                        )}
-                        {result.file4Target && (
-                          <FormControlLabel
-                            value="file4"
-                            control={<Radio size="small" />}
-                            label="4"
-                          />
-                        )}
+                        {result.inFiles.map(fileName => {
+                          const targetKey = `${fileName}Target` as keyof ComparisonResult;
+                          if (!result[targetKey]) return null;
+                          
+                          const file = files[fileName];
+                          const label = file?.fileIdentifier?.[0] || fileName.replace('file', '');
+                          
+                          return (
+                            <FormControlLabel
+                              key={fileName}
+                              value={fileName}
+                              control={<Radio size="small" />}
+                              label={label}
+                            />
+                          );
+                        })}
                       </RadioGroup>
                     )}
                   </TableCell>

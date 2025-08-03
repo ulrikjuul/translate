@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# XLIFF files in public folder
+public/*.xlf
+public/*.xliff
+public/xliff-files.json
+# But keep the example file
+!public/xliff-files.json.example
+!public/README_XLIFF.md

@@ -24,13 +24,28 @@ import {
 import { Search, Clear, Visibility } from '@mui/icons-material';
 import { useComparisonStore } from '../store/useComparisonStore';
 import type { AllStringsResult } from '../store/useComparisonStore';
+import type { FileName } from '../types/xliff';
 import { XmlDialog } from './XmlDialog';
 
 type Order = 'asc' | 'desc';
 type OrderBy = 'id' | 'source' | 'target' | 'fromFile';
 
+const FILE_COLORS = {
+  file1: 'info',
+  file2: 'warning',
+  file3: 'secondary',
+  file4: 'success',
+  file5: 'error',
+  file6: 'primary',
+  file7: 'info',
+  file8: 'warning',
+  file9: 'secondary',
+  file10: 'success'
+} as const;
+
 export const AllStringsView: React.FC = () => {
-  const { getAllStrings, file1, file2, file3, file4, file1Raw, file2Raw, file3Raw, file4Raw } = useComparisonStore();
+  const store = useComparisonStore();
+  const { getAllStrings, files, rawFiles } = store;
   const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [page, setPage] = useState(0);
@@ -43,12 +58,10 @@ export const AllStringsView: React.FC = () => {
   
   const allStrings = getAllStrings();
   
-  // Debug logging
-  console.log('File 1 units:', file1?.transUnits.length);
-  console.log('File 2 units:', file2?.transUnits.length);
-  console.log('File 3 units:', file3?.transUnits.length);
-  console.log('File 4 units:', file4?.transUnits.length);
-  console.log('Total getAllStrings:', allStrings.length);
+  // Get loaded files
+  const loadedFiles = Object.entries(files)
+    .filter(([_, file]) => file !== null)
+    .map(([key]) => key as FileName);
   
   const handleRequestSort = (property: OrderBy) => {
     const isAsc = orderBy === property && order === 'asc';
@@ -97,11 +110,10 @@ export const AllStringsView: React.FC = () => {
     
     // If searching in raw XML content, show all if term is found
     if (searchInRaw && !matchesSearch) {
-      const rawContainsSearch = 
-        (file1Raw && file1Raw.toLowerCase().includes(searchLower)) ||
-        (file2Raw && file2Raw.toLowerCase().includes(searchLower)) ||
-        (file3Raw && file3Raw.toLowerCase().includes(searchLower)) ||
-        (file4Raw && file4Raw.toLowerCase().includes(searchLower));
+      const rawContainsSearch = loadedFiles.some(fileName => {
+        const raw = rawFiles[fileName];
+        return raw && raw.toLowerCase().includes(searchLower);
+      });
       
       if (rawContainsSearch) {
         matchesSearch = true;
@@ -150,27 +162,20 @@ export const AllStringsView: React.FC = () => {
     setSelectedXml(null);
   };
   
-  const getFileChip = (fromFile: string) => {
-    switch (fromFile) {
-      case 'file1':
-        return <Chip label={file1?.fileIdentifier || 'File 1'} color="info" size="small" />;
-      case 'file2':
-        return <Chip label={file2?.fileIdentifier || 'File 2'} color="warning" size="small" />;
-      case 'file3':
-        return <Chip label={file3?.fileIdentifier || 'File 3'} color="secondary" size="small" />;
-      case 'file4':
-        return <Chip label={file4?.fileIdentifier || 'File 4'} color="default" size="small" />;
-      default:
-        return null;
-    }
+  const getFileChip = (fromFile: FileName) => {
+    const file = files[fromFile];
+    const label = file?.fileIdentifier || fromFile;
+    return <Chip label={label} color={FILE_COLORS[fromFile] as any} size="small" />;
   };
   
-  // Calculate total strings from each file
-  const file1Count = file1?.transUnits.length || 0;
-  const file2Count = file2?.transUnits.length || 0;
-  const file3Count = file3?.transUnits.length || 0;
-  const file4Count = file4?.transUnits.length || 0;
-  const totalStrings = file1Count + file2Count + file3Count + file4Count;
+  // Calculate file counts
+  const fileCounts = loadedFiles.reduce((acc, fileName) => {
+    const file = files[fileName];
+    acc[fileName] = file?.transUnits.length || 0;
+    return acc;
+  }, {} as Record<FileName, number>);
+  
+  const totalStrings = Object.values(fileCounts).reduce((sum, count) => sum + count, 0);
   
   return (
     <Box>
@@ -181,7 +186,7 @@ export const AllStringsView: React.FC = () => {
               All Strings View
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Viewing all {totalStrings.toLocaleString()} strings from all files (including duplicates) - Actually loaded: {allStrings.length}
+              Viewing all {totalStrings.toLocaleString()} strings from {loadedFiles.length} files (including duplicates)
             </Typography>
           </Stack>
           {searchTerm && (
@@ -201,26 +206,17 @@ export const AllStringsView: React.FC = () => {
         
         <Paper elevation={1} sx={{ p: 2, bgcolor: 'background.default' }}>
           <Stack direction="row" spacing={3} flexWrap="wrap">
-            {file1Count > 0 && (
-              <Typography variant="body2" color="info.main">
-                <strong>{file1?.fileIdentifier || 'File 1'}:</strong> {file1Count.toLocaleString()} strings
-              </Typography>
-            )}
-            {file2Count > 0 && (
-              <Typography variant="body2" color="warning.main">
-                <strong>{file2?.fileIdentifier || 'File 2'}:</strong> {file2Count.toLocaleString()} strings
-              </Typography>
-            )}
-            {file3Count > 0 && (
-              <Typography variant="body2" color="secondary.main">
-                <strong>{file3?.fileIdentifier || 'File 3'}:</strong> {file3Count.toLocaleString()} strings
-              </Typography>
-            )}
-            {file4Count > 0 && (
-              <Typography variant="body2" color="text.secondary">
-                <strong>{file4?.fileIdentifier || 'File 4'}:</strong> {file4Count.toLocaleString()} strings
-              </Typography>
-            )}
+            {loadedFiles.map(fileName => {
+              const file = files[fileName];
+              const count = fileCounts[fileName];
+              if (!file || count === 0) return null;
+              
+              return (
+                <Typography key={fileName} variant="body2" color={`${FILE_COLORS[fileName]}.main`}>
+                  <strong>{file.fileIdentifier || fileName}:</strong> {count.toLocaleString()} strings
+                </Typography>
+              );
+            })}
           </Stack>
         </Paper>
       </Stack>
