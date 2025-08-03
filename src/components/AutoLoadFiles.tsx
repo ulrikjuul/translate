@@ -90,26 +90,11 @@ export const AutoLoadFiles: React.FC = () => {
       // Get list of files
       let fileList = await fetchFileList();
       
-      // If no file list, try to detect files by pattern
+      // If no file list, warn the user
       if (fileList.length === 0) {
-        // Try common patterns
-        const patterns = [
-          '983.xlf', '984.xlf', '985.xlf', '986.xlf', '987.xlf',
-          '988.xlf', '989.xlf', '990.xlf', 'LATEST.xlf'
-        ];
-        
-        const detectedFiles = [];
-        for (const pattern of patterns) {
-          try {
-            const response = await fetch(`/${pattern}`);
-            if (response.ok) {
-              detectedFiles.push(pattern);
-            }
-          } catch {
-            // File doesn't exist, continue
-          }
-        }
-        fileList = detectedFiles;
+        console.warn('No xliff-files.json found. Please create /public/xliff-files.json with your file list.');
+        setErrors(['No file list found. Please create /public/xliff-files.json']);
+        return;
       }
       
       // Sort files
@@ -205,8 +190,8 @@ export const AutoLoadFiles: React.FC = () => {
             <strong>How to use:</strong>
             <ol style={{ margin: '8px 0', paddingLeft: '20px' }}>
               <li>Place your XLIFF files in the <code>/public</code> folder</li>
-              <li>Name them with numbers (e.g., <code>983.xlf</code>, <code>984.xlf</code>) or <code>LATEST.xlf</code></li>
-              <li>Optionally create <code>/public/xliff-files.json</code> with: <code>{`{"files": ["983.xlf", "984.xlf", "LATEST.xlf"]}`}</code></li>
+              <li>Name your files with identifiers in parentheses (e.g., <code>translation (61).xlf</code>, <code>translation (185).xlf</code>)</li>
+              <li>Create <code>/public/xliff-files.json</code> with your file list: <code>{`{"files": ["translation (61).xlf", "translation (185).xlf", "translation (latest).xlf"]}`}</code></li>
               <li>Click "Load Files from Public Folder" above</li>
             </ol>
           </Typography>
