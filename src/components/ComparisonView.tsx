@@ -192,10 +192,15 @@ export const ComparisonView: React.FC = () => {
   };
   
   const getStatusChip = (result: ComparisonResult) => {
-    if (result.file1Only) return <Chip label="File 1 Only" color="info" size="small" />;
-    if (result.file2Only) return <Chip label="File 2 Only" color="warning" size="small" />;
-    if (result.file3Only) return <Chip label="File 3 Only" color="secondary" size="small" />;
-    if (result.file4Only) return <Chip label="File 4 Only" color="default" size="small" />;
+    const getFileLabel = (fileNum: 1 | 2 | 3 | 4) => {
+      const fileData = fileNum === 1 ? file1 : fileNum === 2 ? file2 : fileNum === 3 ? file3 : file4;
+      return fileData?.fileIdentifier || `File ${fileNum}`;
+    };
+    
+    if (result.file1Only) return <Chip label={`${getFileLabel(1)} Only`} color="info" size="small" />;
+    if (result.file2Only) return <Chip label={`${getFileLabel(2)} Only`} color="warning" size="small" />;
+    if (result.file3Only) return <Chip label={`${getFileLabel(3)} Only`} color="secondary" size="small" />;
+    if (result.file4Only) return <Chip label={`${getFileLabel(4)} Only`} color="default" size="small" />;
     if (result.inFiles.length === 2 && !result.isDifferent) {
       const filesText = result.inFiles.join(' & ');
       return <Chip label={`Same in ${filesText}`} color="success" size="small" />;
@@ -250,7 +255,7 @@ export const ComparisonView: React.FC = () => {
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} flexWrap="wrap">
               {file1 && (
                 <Chip
-                  label={`File 1: ${file1.original || 'Unnamed'} (${file1.sourceLanguage} → ${file1.targetLanguage}) - ${file1.transUnits.length} strings`}
+                  label={`${file1.fileIdentifier || 'File 1'}: ${file1.original || 'Unnamed'} (${file1.sourceLanguage} → ${file1.targetLanguage}) - ${file1.transUnits.length} strings`}
                   variant="filled"
                   color="info"
                   size="small"
@@ -258,7 +263,7 @@ export const ComparisonView: React.FC = () => {
               )}
               {file2 && (
                 <Chip
-                  label={`File 2: ${file2.original || 'Unnamed'} (${file2.sourceLanguage} → ${file2.targetLanguage}) - ${file2.transUnits.length} strings`}
+                  label={`${file2.fileIdentifier || 'File 2'}: ${file2.original || 'Unnamed'} (${file2.sourceLanguage} → ${file2.targetLanguage}) - ${file2.transUnits.length} strings`}
                   variant="filled"
                   color="warning"
                   size="small"
@@ -266,7 +271,7 @@ export const ComparisonView: React.FC = () => {
               )}
               {file3 && (
                 <Chip
-                  label={`File 3: ${file3.original || 'Unnamed'} (${file3.sourceLanguage} → ${file3.targetLanguage}) - ${file3.transUnits.length} strings`}
+                  label={`${file3.fileIdentifier || 'File 3'}: ${file3.original || 'Unnamed'} (${file3.sourceLanguage} → ${file3.targetLanguage}) - ${file3.transUnits.length} strings`}
                   variant="filled"
                   color="secondary"
                   size="small"
@@ -274,7 +279,7 @@ export const ComparisonView: React.FC = () => {
               )}
               {file4 && (
                 <Chip
-                  label={`File 4: ${file4.original || 'Unnamed'} (${file4.sourceLanguage} → ${file4.targetLanguage}) - ${file4.transUnits.length} strings`}
+                  label={`${file4.fileIdentifier || 'File 4'}: ${file4.original || 'Unnamed'} (${file4.sourceLanguage} → ${file4.targetLanguage}) - ${file4.transUnits.length} strings`}
                   variant="filled"
                   color="default"
                   size="small"
@@ -301,22 +306,22 @@ export const ComparisonView: React.FC = () => {
                 )}
                 {stats.file1Only > 0 && (
                   <Typography variant="body2" color="info.main">
-                    <strong>File 1 only:</strong> {stats.file1Only}
+                    <strong>{file1?.fileIdentifier || 'File 1'} only:</strong> {stats.file1Only}
                   </Typography>
                 )}
                 {stats.file2Only > 0 && (
                   <Typography variant="body2" color="warning.main">
-                    <strong>File 2 only:</strong> {stats.file2Only}
+                    <strong>{file2?.fileIdentifier || 'File 2'} only:</strong> {stats.file2Only}
                   </Typography>
                 )}
                 {stats.file3Only > 0 && (
                   <Typography variant="body2" color="secondary.main">
-                    <strong>File 3 only:</strong> {stats.file3Only}
+                    <strong>{file3?.fileIdentifier || 'File 3'} only:</strong> {stats.file3Only}
                   </Typography>
                 )}
                 {stats.file4Only > 0 && (
                   <Typography variant="body2" color="text.secondary">
-                    <strong>File 4 only:</strong> {stats.file4Only}
+                    <strong>{file4?.fileIdentifier || 'File 4'} only:</strong> {stats.file4Only}
                   </Typography>
                 )}
               </Stack>
@@ -370,10 +375,10 @@ export const ComparisonView: React.FC = () => {
             >
               <MenuItem value="all">All Translations</MenuItem>
               <MenuItem value="different">Different Only</MenuItem>
-              <MenuItem value="file1Only">File 1 Only</MenuItem>
-              <MenuItem value="file2Only">File 2 Only</MenuItem>
-              {file3 && <MenuItem value="file3Only">File 3 Only</MenuItem>}
-              {file4 && <MenuItem value="file4Only">File 4 Only</MenuItem>}
+              <MenuItem value="file1Only">{file1?.fileIdentifier || 'File 1'} Only</MenuItem>
+              <MenuItem value="file2Only">{file2?.fileIdentifier || 'File 2'} Only</MenuItem>
+              {file3 && <MenuItem value="file3Only">{file3.fileIdentifier || 'File 3'} Only</MenuItem>}
+              {file4 && <MenuItem value="file4Only">{file4.fileIdentifier || 'File 4'} Only</MenuItem>}
             </Select>
           </FormControl>
         </Stack>
@@ -438,7 +443,7 @@ export const ComparisonView: React.FC = () => {
                   direction={orderBy === 'file1Target' ? order : 'asc'}
                   onClick={() => handleRequestSort('file1Target')}
                 >
-                  File 1 Translation
+                  {file1?.fileIdentifier || 'File 1'} Translation
                 </TableSortLabel>
               </TableCell>
               <TableCell>
@@ -447,7 +452,7 @@ export const ComparisonView: React.FC = () => {
                   direction={orderBy === 'file2Target' ? order : 'asc'}
                   onClick={() => handleRequestSort('file2Target')}
                 >
-                  File 2 Translation
+                  {file2?.fileIdentifier || 'File 2'} Translation
                 </TableSortLabel>
               </TableCell>
               {file3 && (
@@ -457,7 +462,7 @@ export const ComparisonView: React.FC = () => {
                     direction={orderBy === 'file3Target' ? order : 'asc'}
                     onClick={() => handleRequestSort('file3Target')}
                   >
-                    File 3 Translation
+                    {file3?.fileIdentifier || 'File 3'} Translation
                   </TableSortLabel>
                 </TableCell>
               )}
@@ -468,7 +473,7 @@ export const ComparisonView: React.FC = () => {
                     direction={orderBy === 'file4Target' ? order : 'asc'}
                     onClick={() => handleRequestSort('file4Target')}
                   >
-                    File 4 Translation
+                    {file4?.fileIdentifier || 'File 4'} Translation
                   </TableSortLabel>
                 </TableCell>
               )}

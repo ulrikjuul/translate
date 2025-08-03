@@ -13,6 +13,7 @@ export interface XliffFile {
   sourceLanguage: string;
   targetLanguage: string;
   original?: string;
+  fileIdentifier?: string;
   transUnits: TransUnit[];
 }
 

@@ -153,13 +153,13 @@ export const AllStringsView: React.FC = () => {
   const getFileChip = (fromFile: string) => {
     switch (fromFile) {
       case 'file1':
-        return <Chip label="File 1" color="info" size="small" />;
+        return <Chip label={file1?.fileIdentifier || 'File 1'} color="info" size="small" />;
       case 'file2':
-        return <Chip label="File 2" color="warning" size="small" />;
+        return <Chip label={file2?.fileIdentifier || 'File 2'} color="warning" size="small" />;
       case 'file3':
-        return <Chip label="File 3" color="secondary" size="small" />;
+        return <Chip label={file3?.fileIdentifier || 'File 3'} color="secondary" size="small" />;
       case 'file4':
-        return <Chip label="File 4" color="default" size="small" />;
+        return <Chip label={file4?.fileIdentifier || 'File 4'} color="default" size="small" />;
       default:
         return null;
     }
@@ -203,22 +203,22 @@ export const AllStringsView: React.FC = () => {
           <Stack direction="row" spacing={3} flexWrap="wrap">
             {file1Count > 0 && (
               <Typography variant="body2" color="info.main">
-                <strong>File 1:</strong> {file1Count.toLocaleString()} strings
+                <strong>{file1?.fileIdentifier || 'File 1'}:</strong> {file1Count.toLocaleString()} strings
               </Typography>
             )}
             {file2Count > 0 && (
               <Typography variant="body2" color="warning.main">
-                <strong>File 2:</strong> {file2Count.toLocaleString()} strings
+                <strong>{file2?.fileIdentifier || 'File 2'}:</strong> {file2Count.toLocaleString()} strings
               </Typography>
             )}
             {file3Count > 0 && (
               <Typography variant="body2" color="secondary.main">
-                <strong>File 3:</strong> {file3Count.toLocaleString()} strings
+                <strong>{file3?.fileIdentifier || 'File 3'}:</strong> {file3Count.toLocaleString()} strings
               </Typography>
             )}
             {file4Count > 0 && (
               <Typography variant="body2" color="text.secondary">
-                <strong>File 4:</strong> {file4Count.toLocaleString()} strings
+                <strong>{file4?.fileIdentifier || 'File 4'}:</strong> {file4Count.toLocaleString()} strings
               </Typography>
             )}
           </Stack>

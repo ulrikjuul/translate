@@ -1,5 +1,29 @@
 import type { XliffFile, TransUnit } from '../types/xliff';
 
+// Extract identifier from filename - looks for patterns like (983) or (latest)
+export const extractFileIdentifier = (filename: string): string => {
+  // Check for number in parentheses: (123)
+  const numberMatch = filename.match(/\((\d+)\)\.(xlf|xliff)$/i);
+  if (numberMatch) {
+    return numberMatch[1];
+  }
+  
+  // Check for "latest" in parentheses: (latest)
+  const latestMatch = filename.match(/\(latest\)\.(xlf|xliff)$/i);
+  if (latestMatch) {
+    return 'LATEST';
+  }
+  
+  // If no pattern found, use a short version of the filename
+  const shortName = filename.replace(/\.(xlf|xliff)$/i, '');
+  // Return just the last part if it's very long
+  if (shortName.length > 20) {
+    const parts = shortName.split(/[_\-\s]/);
+    return parts[parts.length - 1] || shortName.substring(0, 10);
+  }
+  return shortName;
+};
+
 export const parseXliff = (xmlContent: string): XliffFile => {
   // Fix common XML entity issues before parsing
   // This regex finds & that are not part of valid XML entities

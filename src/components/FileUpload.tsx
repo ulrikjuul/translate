@@ -2,15 +2,16 @@ import React, { useCallback } from 'react';
 import { Box, Button, Paper, Typography, Stack } from '@mui/material';
 import { CloudUpload } from '@mui/icons-material';
 import { useComparisonStore } from '../store/useComparisonStore';
-import { parseXliff } from '../utils/xliffParser';
+import { parseXliff, extractFileIdentifier } from '../utils/xliffParser';
 
 interface FileUploadProps {
   label: string;
   onFileLoad: (file: any, rawContent?: string) => void;
   fileName?: string;
+  fileIdentifier?: string;
 }
 
-export const FileUpload: React.FC<FileUploadProps> = ({ label, onFileLoad, fileName }) => {
+export const FileUpload: React.FC<FileUploadProps> = ({ label, onFileLoad, fileName, fileIdentifier }) => {
   const handleFileChange = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -27,6 +28,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({ label, onFileLoad, fileN
       const xliffData = parseXliff(text);
       console.log(`File ${label} parsed trans-units: ${xliffData.transUnits.length}`);
       
+      // Extract identifier from filename
+      const fileIdentifier = extractFileIdentifier(file.name);
+      xliffData.fileIdentifier = fileIdentifier;
+      console.log(`File ${label} identifier: ${fileIdentifier}`);
+      
       onFileLoad(xliffData, text);
     } catch (error) {
       console.error('Error parsing XLIFF file:', error);
@@ -37,7 +43,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({ label, onFileLoad, fileN
   return (
     <Paper elevation={2} sx={{ p: 3 }}>
       <Stack spacing={2} alignItems="center">
-        <Typography variant="h6">{label}</Typography>
+        <Typography variant="h6">{fileIdentifier || label}</Typography>
         <Button
           variant="contained"
           component="label"
@@ -76,6 +82,7 @@ export const FileUploadSection: React.FC = () => {
             label="File 1" 
             onFileLoad={setFile1}
             fileName={file1?.original}
+            fileIdentifier={file1?.fileIdentifier}
           />
         </Box>
         <Box flex={1}>
@@ -83,6 +90,7 @@ export const FileUploadSection: React.FC = () => {
             label="File 2" 
             onFileLoad={setFile2}
             fileName={file2?.original}
+            fileIdentifier={file2?.fileIdentifier}
           />
         </Box>
         <Box flex={1}>
@@ -90,6 +98,7 @@ export const FileUploadSection: React.FC = () => {
             label="File 3 (Optional)" 
             onFileLoad={setFile3}
             fileName={file3?.original}
+            fileIdentifier={file3?.fileIdentifier}
           />
         </Box>
         <Box flex={1}>
@@ -97,6 +106,7 @@ export const FileUploadSection: React.FC = () => {
             label="File 4 (Optional)" 
             onFileLoad={setFile4}
             fileName={file4?.original}
+            fileIdentifier={file4?.fileIdentifier}
           />
         </Box>
       </Stack>
