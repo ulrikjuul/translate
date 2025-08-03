@@ -1,27 +1,40 @@
 import type { XliffFile, TransUnit } from '../types/xliff';
 
-// Extract identifier from filename - looks for patterns like (983) or (latest)
+// Extract identifier from filename - looks for numbers or "latest" in various patterns
 export const extractFileIdentifier = (filename: string): string => {
-  // Check for number in parentheses: (123)
-  const numberMatch = filename.match(/\((\d+)\)\.(xlf|xliff)$/i);
-  if (numberMatch) {
-    return numberMatch[1];
+  // Remove file extension first
+  const nameWithoutExt = filename.replace(/\.(xlf|xliff)$/i, '');
+  
+  // Pattern 1: Just a number as filename (e.g., "983.xlf")
+  if (/^\d+$/.test(nameWithoutExt)) {
+    return nameWithoutExt;
   }
   
-  // Check for "latest" in parentheses: (latest)
-  const latestMatch = filename.match(/\(latest\)\.(xlf|xliff)$/i);
-  if (latestMatch) {
+  // Pattern 2: "LATEST" or "latest" as filename
+  if (/^latest$/i.test(nameWithoutExt)) {
     return 'LATEST';
   }
   
-  // If no pattern found, use a short version of the filename
-  const shortName = filename.replace(/\.(xlf|xliff)$/i, '');
-  // Return just the last part if it's very long
-  if (shortName.length > 20) {
-    const parts = shortName.split(/[_\-\s]/);
-    return parts[parts.length - 1] || shortName.substring(0, 10);
+  // Pattern 3: Number in parentheses anywhere (e.g., "translation_23925_de-du (983).xlf")
+  const parenNumberMatch = nameWithoutExt.match(/\((\d+)\)/);
+  if (parenNumberMatch) {
+    return parenNumberMatch[1];
   }
-  return shortName;
+  
+  // Pattern 4: "latest" in parentheses
+  const parenLatestMatch = nameWithoutExt.match(/\(latest\)/i);
+  if (parenLatestMatch) {
+    return 'LATEST';
+  }
+  
+  // Pattern 5: Extract any number from the filename (e.g., "file_983_translation")
+  const anyNumberMatch = nameWithoutExt.match(/(\d+)/);
+  if (anyNumberMatch) {
+    return anyNumberMatch[1];
+  }
+  
+  // Fallback: use the filename without extension
+  return nameWithoutExt;
 };
 
 export const parseXliff = (xmlContent: string): XliffFile => {
