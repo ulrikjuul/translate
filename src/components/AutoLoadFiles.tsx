@@ -34,8 +34,12 @@ export const AutoLoadFiles: React.FC = () => {
         return [];
       }
       
-      const fileList = await response.json();
-      return fileList.files || [];
+      const data = await response.json();
+      // Store metadata if available
+      if (data.generated) {
+        console.log(`Using auto-generated file list from ${new Date(data.generated).toLocaleString()}`);
+      }
+      return data.files || [];
     } catch (error) {
       // JSON parsing error or network error
       // This is expected when the file doesn't exist
@@ -199,9 +203,12 @@ export const AutoLoadFiles: React.FC = () => {
             <ol style={{ margin: '8px 0', paddingLeft: '20px' }}>
               <li>Place your XLIFF files in the <code>/public</code> folder</li>
               <li>Name your files with identifiers in parentheses (e.g., <code>translation (61).xlf</code>, <code>translation (185).xlf</code>)</li>
-              <li>Create <code>/public/xliff-files.json</code> with your file list: <code>{`{"files": ["translation (61).xlf", "translation (185).xlf", "translation (latest).xlf"]}`}</code></li>
+              <li>Run <code>npm run generate-list</code> to auto-generate the file list</li>
               <li>Click "Load Files from Public Folder" above</li>
             </ol>
+            <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+              Note: The file list is automatically generated when you run <code>npm run dev</code>
+            </Typography>
           </Typography>
         </Alert>
       </Stack>
