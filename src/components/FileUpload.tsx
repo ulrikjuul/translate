@@ -112,7 +112,7 @@ export const FileUploadSection: React.FC = () => {
       
       <Grid container spacing={2}>
         {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
-          <Grid item xs={6} sm={4} md={3} lg={2.4} key={num}>
+          <Grid key={num} size={{ xs: 6, sm: 4, md: 3, lg: 2.4 }}>
             <FileUpload 
               fileNum={num}
               onFileLoad={(file, raw) => setFile(num, file, raw)}

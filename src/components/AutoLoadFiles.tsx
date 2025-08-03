@@ -90,10 +90,11 @@ export const AutoLoadFiles: React.FC = () => {
       // Get list of files
       let fileList = await fetchFileList();
       
-      // If no file list, warn the user
+      // If no file list, show helpful message
       if (fileList.length === 0) {
-        console.warn('No xliff-files.json found. Please create /public/xliff-files.json with your file list.');
-        setErrors(['No file list found. Please create /public/xliff-files.json']);
+        console.info('No xliff-files.json found. Please create /public/xliff-files.json with your file list.');
+        setErrors(['Please create /public/xliff-files.json with your XLIFF file list (see example below)']);
+        setLoading(false);
         return;
       }
       
@@ -180,8 +181,8 @@ export const AutoLoadFiles: React.FC = () => {
         )}
         
         {errors.length > 0 && (
-          <Alert severity="error">
-            Failed to load: {errors.join(', ')}
+          <Alert severity={errors[0].includes('Please create') ? 'warning' : 'error'}>
+            {errors.join(', ')}
           </Alert>
         )}
         
