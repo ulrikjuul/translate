@@ -1,39 +1,34 @@
 import type { XliffFile, TransUnit } from '../types/xliff';
 
-// Extract identifier from filename - looks for numbers or "latest" in various patterns
+// Extract identifier from filename - MUST use the number in parentheses (e.g., (61), (185))
 export const extractFileIdentifier = (filename: string): string => {
-  // Remove file extension first
-  const nameWithoutExt = filename.replace(/\.(xlf|xliff)$/i, '');
-  
-  // Pattern 1: Just a number as filename (e.g., "983.xlf")
-  if (/^\d+$/.test(nameWithoutExt)) {
-    return nameWithoutExt;
-  }
-  
-  // Pattern 2: "LATEST" or "latest" as filename
-  if (/^latest$/i.test(nameWithoutExt)) {
-    return 'LATEST';
-  }
-  
-  // Pattern 3: Number in parentheses anywhere (e.g., "translation_23925_de-du (983).xlf")
-  const parenNumberMatch = nameWithoutExt.match(/\((\d+)\)/);
+  // Priority 1: Number in parentheses (e.g., "translation_23925_de-du (61).xlf" → "61")
+  const parenNumberMatch = filename.match(/\((\d+)\)/);
   if (parenNumberMatch) {
     return parenNumberMatch[1];
   }
   
-  // Pattern 4: "latest" in parentheses
-  const parenLatestMatch = nameWithoutExt.match(/\(latest\)/i);
+  // Priority 2: "latest" in parentheses (case insensitive)
+  const parenLatestMatch = filename.match(/\(latest\)/i);
   if (parenLatestMatch) {
     return 'LATEST';
   }
   
-  // Pattern 5: Extract any number from the filename (e.g., "file_983_translation")
-  const anyNumberMatch = nameWithoutExt.match(/(\d+)/);
-  if (anyNumberMatch) {
-    return anyNumberMatch[1];
+  // If no parentheses, check if the filename itself is just a number or "latest"
+  const nameWithoutExt = filename.replace(/\.(xlf|xliff)$/i, '');
+  
+  // Just a number as filename (e.g., "61.xlf")
+  if (/^\d+$/.test(nameWithoutExt)) {
+    return nameWithoutExt;
   }
   
-  // Fallback: use the filename without extension
+  // "LATEST" or "latest" as filename
+  if (/^latest$/i.test(nameWithoutExt)) {
+    return 'LATEST';
+  }
+  
+  // Fallback: use the filename without extension (but this should rarely happen)
+  // since we expect files to have (number) format
   return nameWithoutExt;
 };
 
