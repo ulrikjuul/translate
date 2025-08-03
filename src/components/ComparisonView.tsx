@@ -463,7 +463,7 @@ export const ComparisonView: React.FC = () => {
                           if (!result[targetKey]) return null;
                           
                           const file = files[fileName];
-                          const label = file?.fileIdentifier?.[0] || fileName.replace('file', '');
+                          const label = file?.fileIdentifier || fileName.replace('file', '');
                           
                           return (
                             <FormControlLabel
@@ -471,6 +471,7 @@ export const ComparisonView: React.FC = () => {
                               value={fileName}
                               control={<Radio size="small" />}
                               label={label}
+                              sx={{ mr: 1 }}
                             />
                           );
                         })}
