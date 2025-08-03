@@ -425,7 +425,7 @@ export const ComparisonView: React.FC = () => {
                   </TableCell>
                 );
               })}
-              <TableCell align="center" sx={{ minWidth: 150 }}>Select Version</TableCell>
+              <TableCell align="center" sx={{ minWidth: 250 }}>Select Version</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -454,9 +454,17 @@ export const ComparisonView: React.FC = () => {
                   <TableCell align="center">
                     {result.inFiles.length > 0 && (
                       <RadioGroup
-                        row
                         value={result.selectedVersion || ''}
                         onChange={(e) => selectVersion(result.id, e.target.value as FileName)}
+                        sx={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(3, 1fr)',
+                          gap: 0.5,
+                          '& .MuiFormControlLabel-root': {
+                            margin: 0,
+                            justifyContent: 'center'
+                          }
+                        }}
                       >
                         {result.inFiles.map(fileName => {
                           const targetKey = `${fileName}Target` as keyof ComparisonResult;
@@ -471,7 +479,6 @@ export const ComparisonView: React.FC = () => {
                               value={fileName}
                               control={<Radio size="small" />}
                               label={label}
-                              sx={{ mr: 1 }}
                             />
                           );
                         })}
