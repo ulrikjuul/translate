@@ -1,0 +1,371 @@
+import React, { useState } from 'react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Box,
+  TextField,
+  Typography,
+  TablePagination,
+  Stack,
+  Chip,
+  Button,
+  InputAdornment,
+  IconButton,
+  TableSortLabel,
+  FormControlLabel,
+  Checkbox,
+  Tooltip
+} from '@mui/material';
+import { Search, Clear, Visibility } from '@mui/icons-material';
+import { useComparisonStore } from '../store/useComparisonStore';
+import type { AllStringsResult } from '../store/useComparisonStore';
+import { XmlDialog } from './XmlDialog';
+
+type Order = 'asc' | 'desc';
+type OrderBy = 'id' | 'source' | 'target' | 'fromFile';
+
+export const AllStringsView: React.FC = () => {
+  const { getAllStrings, file1, file2, file3, file4, file1Raw, file2Raw, file3Raw, file4Raw } = useComparisonStore();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [order, setOrder] = useState<Order>('asc');
+  const [orderBy, setOrderBy] = useState<OrderBy>('id');
+  const [searchInRaw, setSearchInRaw] = useState(false);
+  const [selectedXml, setSelectedXml] = useState<AllStringsResult | null>(null);
+  const [xmlDialogOpen, setXmlDialogOpen] = useState(false);
+  
+  const allStrings = getAllStrings();
+  
+  // Debug logging
+  console.log('File 1 units:', file1?.transUnits.length);
+  console.log('File 2 units:', file2?.transUnits.length);
+  console.log('File 3 units:', file3?.transUnits.length);
+  console.log('File 4 units:', file4?.transUnits.length);
+  console.log('Total getAllStrings:', allStrings.length);
+  
+  const handleRequestSort = (property: OrderBy) => {
+    const isAsc = orderBy === property && order === 'asc';
+    setOrder(isAsc ? 'desc' : 'asc');
+    setOrderBy(property);
+  };
+  
+  const getComparator = (
+    order: Order,
+    orderBy: OrderBy,
+  ): ((a: AllStringsResult, b: AllStringsResult) => number) => {
+    return order === 'desc'
+      ? (a, b) => descendingComparator(a, b, orderBy)
+      : (a, b) => -descendingComparator(a, b, orderBy);
+  };
+  
+  const descendingComparator = (
+    a: AllStringsResult,
+    b: AllStringsResult,
+    orderBy: OrderBy,
+  ) => {
+    const aValue = a[orderBy] || '';
+    const bValue = b[orderBy] || '';
+    
+    if (bValue < aValue) {
+      return -1;
+    }
+    if (bValue > aValue) {
+      return 1;
+    }
+    return 0;
+  };
+  
+  const filteredStrings = allStrings.filter(item => {
+    const searchLower = searchTerm.toLowerCase().trim();
+    
+    if (!searchLower) return true;
+    
+    // Standard search in parsed fields
+    let matchesSearch = 
+      (item.id || '').toLowerCase().includes(searchLower) ||
+      (item.source || '').toLowerCase().includes(searchLower) ||
+      (item.target || '').toLowerCase().includes(searchLower) ||
+      (item.note || '').toLowerCase().includes(searchLower) ||
+      (item.state || '').toLowerCase().includes(searchLower);
+    
+    // If searching in raw XML content, show all if term is found
+    if (searchInRaw && !matchesSearch) {
+      const rawContainsSearch = 
+        (file1Raw && file1Raw.toLowerCase().includes(searchLower)) ||
+        (file2Raw && file2Raw.toLowerCase().includes(searchLower)) ||
+        (file3Raw && file3Raw.toLowerCase().includes(searchLower)) ||
+        (file4Raw && file4Raw.toLowerCase().includes(searchLower));
+      
+      if (rawContainsSearch) {
+        matchesSearch = true;
+      }
+    }
+    
+    return matchesSearch;
+  });
+  
+  const sortedStrings = [...filteredStrings].sort(getComparator(order, orderBy));
+  
+  const handleSearch = () => {
+    const trimmedSearch = searchInput.trim();
+    setSearchTerm(trimmedSearch);
+    setPage(0);
+  };
+  
+  const handleClearSearch = () => {
+    setSearchInput('');
+    setSearchTerm('');
+    setPage(0);
+  };
+  
+  const handleKeyPress = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter') {
+      handleSearch();
+    }
+  };
+  
+  const handleChangePage = (event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+  
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+  
+  const handleShowXml = (item: AllStringsResult) => {
+    setSelectedXml(item);
+    setXmlDialogOpen(true);
+  };
+  
+  const handleCloseXml = () => {
+    setXmlDialogOpen(false);
+    setSelectedXml(null);
+  };
+  
+  const getFileChip = (fromFile: string) => {
+    switch (fromFile) {
+      case 'file1':
+        return <Chip label="File 1" color="info" size="small" />;
+      case 'file2':
+        return <Chip label="File 2" color="warning" size="small" />;
+      case 'file3':
+        return <Chip label="File 3" color="secondary" size="small" />;
+      case 'file4':
+        return <Chip label="File 4" color="default" size="small" />;
+      default:
+        return null;
+    }
+  };
+  
+  // Calculate total strings from each file
+  const file1Count = file1?.transUnits.length || 0;
+  const file2Count = file2?.transUnits.length || 0;
+  const file3Count = file3?.transUnits.length || 0;
+  const file4Count = file4?.transUnits.length || 0;
+  const totalStrings = file1Count + file2Count + file3Count + file4Count;
+  
+  return (
+    <Box>
+      <Stack spacing={2} sx={{ mb: 2 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Stack>
+            <Typography variant="h5">
+              All Strings View
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Viewing all {totalStrings.toLocaleString()} strings from all files (including duplicates) - Actually loaded: {allStrings.length}
+            </Typography>
+          </Stack>
+          {searchTerm && (
+            <Stack spacing={1} alignItems="flex-end">
+              <Chip 
+                label={`Searching for: "${searchTerm}"`}
+                onDelete={handleClearSearch}
+                color="primary"
+                variant="outlined"
+              />
+              <Typography variant="body2" color="text.secondary">
+                Showing {sortedStrings.length.toLocaleString()} of {allStrings.length.toLocaleString()} strings
+              </Typography>
+            </Stack>
+          )}
+        </Stack>
+        
+        <Paper elevation={1} sx={{ p: 2, bgcolor: 'background.default' }}>
+          <Stack direction="row" spacing={3} flexWrap="wrap">
+            {file1Count > 0 && (
+              <Typography variant="body2" color="info.main">
+                <strong>File 1:</strong> {file1Count.toLocaleString()} strings
+              </Typography>
+            )}
+            {file2Count > 0 && (
+              <Typography variant="body2" color="warning.main">
+                <strong>File 2:</strong> {file2Count.toLocaleString()} strings
+              </Typography>
+            )}
+            {file3Count > 0 && (
+              <Typography variant="body2" color="secondary.main">
+                <strong>File 3:</strong> {file3Count.toLocaleString()} strings
+              </Typography>
+            )}
+            {file4Count > 0 && (
+              <Typography variant="body2" color="text.secondary">
+                <strong>File 4:</strong> {file4Count.toLocaleString()} strings
+              </Typography>
+            )}
+          </Stack>
+        </Paper>
+      </Stack>
+      
+      <Stack spacing={2} sx={{ mb: 3 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          <TextField
+            label="Search in all strings"
+            placeholder="Search in ID, source, target, notes..."
+            variant="outlined"
+            size="small"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            onKeyPress={handleKeyPress}
+            sx={{ flex: 1 }}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  {searchTerm && (
+                    <IconButton
+                      onClick={handleClearSearch}
+                      edge="end"
+                      size="small"
+                      title="Clear search"
+                    >
+                      <Clear />
+                    </IconButton>
+                  )}
+                </InputAdornment>
+              ),
+            }}
+          />
+          <Button
+            variant="contained"
+            onClick={handleSearch}
+            startIcon={<Search />}
+            size="medium"
+          >
+            Search
+          </Button>
+        </Stack>
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={searchInRaw}
+              onChange={(e) => setSearchInRaw(e.target.checked)}
+              size="small"
+            />
+          }
+          label="Search in full XLIFF file content (shows all strings if term found anywhere in XML)"
+        />
+      </Stack>
+      
+      <TableContainer component={Paper}>
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell>File</TableCell>
+              <TableCell>
+                <TableSortLabel
+                  active={orderBy === 'id'}
+                  direction={orderBy === 'id' ? order : 'asc'}
+                  onClick={() => handleRequestSort('id')}
+                >
+                  ID
+                </TableSortLabel>
+              </TableCell>
+              <TableCell>
+                <TableSortLabel
+                  active={orderBy === 'source'}
+                  direction={orderBy === 'source' ? order : 'asc'}
+                  onClick={() => handleRequestSort('source')}
+                >
+                  Source
+                </TableSortLabel>
+              </TableCell>
+              <TableCell>
+                <TableSortLabel
+                  active={orderBy === 'target'}
+                  direction={orderBy === 'target' ? order : 'asc'}
+                  onClick={() => handleRequestSort('target')}
+                >
+                  Target
+                </TableSortLabel>
+              </TableCell>
+              <TableCell>State</TableCell>
+              <TableCell>Note</TableCell>
+              <TableCell align="center">XML</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {sortedStrings
+              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+              .map((item, index) => (
+                <TableRow 
+                  key={`${item.fromFile}-${item.id}-${index}`}
+                  hover
+                  sx={{ cursor: 'pointer' }}
+                  onClick={() => handleShowXml(item)}
+                >
+                  <TableCell>{getFileChip(item.fromFile)}</TableCell>
+                  <TableCell>{item.id}</TableCell>
+                  <TableCell>{item.source}</TableCell>
+                  <TableCell>{item.target}</TableCell>
+                  <TableCell>{item.state || '-'}</TableCell>
+                  <TableCell>{item.note || '-'}</TableCell>
+                  <TableCell align="center">
+                    <Tooltip title="View full XML">
+                      <IconButton 
+                        size="small" 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleShowXml(item);
+                        }}
+                      >
+                        <Visibility fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              ))}
+          </TableBody>
+        </Table>
+        <TablePagination
+          rowsPerPageOptions={[10, 25, 50, 100]}
+          component="div"
+          count={sortedStrings.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+        />
+      </TableContainer>
+      
+      {selectedXml && (
+        <XmlDialog
+          open={xmlDialogOpen}
+          onClose={handleCloseXml}
+          title={`Translation Unit from ${selectedXml.fileName || 'File'}`}
+          xmlContent={selectedXml.rawXml || '<trans-unit>No XML data available</trans-unit>'}
+          id={selectedXml.id}
+          source={selectedXml.source}
+          target={selectedXml.target}
+        />
+      )}
+    </Box>
+  );
+};
