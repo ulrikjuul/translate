@@ -107,6 +107,50 @@ export const parseXliff = (xmlContent: string): XliffFile => {
     const targetElement = transUnit.getElementsByTagName('target')[0];
     const noteElement = transUnit.getElementsByTagName('note')[0];
     
+    // Helper function to escape XML special characters in text
+    const escapeXmlText = (text: string): string => {
+      return text
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    };
+    
+    // Recursively process element to escape text content but preserve tags
+    const processElement = (element: Element): string => {
+      let xml = '<' + element.tagName.toLowerCase();
+      
+      // Add attributes
+      for (let i = 0; i < element.attributes.length; i++) {
+        const attr = element.attributes[i];
+        if (!attr.name.startsWith('xmlns')) { // Skip xmlns attributes
+          xml += ` ${attr.name}="${escapeXmlText(attr.value)}"`;
+        }
+      }
+      
+      // Handle self-closing tags
+      if (element.childNodes.length === 0) {
+        xml += '/>';
+        return xml;
+      }
+      
+      xml += '>';
+      
+      // Process child nodes
+      for (let i = 0; i < element.childNodes.length; i++) {
+        const node = element.childNodes[i];
+        if (node.nodeType === Node.TEXT_NODE) {
+          xml += escapeXmlText(node.textContent || '');
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          xml += processElement(node as Element);
+        }
+      }
+      
+      xml += '</' + element.tagName.toLowerCase() + '>';
+      return xml;
+    };
+    
     // Get inner XML to preserve tags like <g>, <x/>, etc.
     const getInnerXML = (element: Element | undefined): string => {
       if (!element) return '';
@@ -115,13 +159,10 @@ export const parseXliff = (xmlContent: string): XliffFile => {
       for (let i = 0; i < element.childNodes.length; i++) {
         const node = element.childNodes[i];
         if (node.nodeType === Node.TEXT_NODE) {
-          xml += node.textContent || '';
+          // Escape special characters in text content
+          xml += escapeXmlText(node.textContent || '');
         } else if (node.nodeType === Node.ELEMENT_NODE) {
-          const serializer = new XMLSerializer();
-          let serialized = serializer.serializeToString(node);
-          // Remove xmlns attribute that gets added by XMLSerializer
-          serialized = serialized.replace(/ xmlns="[^"]*"/g, '');
-          xml += serialized;
+          xml += processElement(node as Element);
         }
       }
       return xml;
