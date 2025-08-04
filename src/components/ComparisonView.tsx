@@ -25,9 +25,10 @@ import {
   IconButton,
   InputAdornment,
   Checkbox,
-  Tooltip
+  Tooltip,
+  Alert
 } from '@mui/material';
-import { Search, Clear, Warning } from '@mui/icons-material';
+import { Search, Clear, Warning, CompareArrows } from '@mui/icons-material';
 import { useComparisonStore } from '../store/useComparisonStore';
 import type { ComparisonResult, FileName } from '../types/xliff';
 
@@ -47,6 +48,55 @@ const FILE_COLORS = {
   file10: 'success'
 } as const;
 
+interface SelectedCell {
+  resultId: string;
+  fileName: FileName;
+  content: string;
+}
+
+function getDifferences(text1: string, text2: string): { text: string; isDifferent: boolean }[] {
+  const result: { text: string; isDifferent: boolean }[] = [];
+  let i = 0, j = 0;
+  
+  while (i < text1.length || j < text2.length) {
+    if (text1[i] === text2[j]) {
+      let same = '';
+      while (i < text1.length && j < text2.length && text1[i] === text2[j]) {
+        same += text1[i];
+        i++;
+        j++;
+      }
+      result.push({ text: same, isDifferent: false });
+    } else {
+      // Find next matching character
+      let diff1 = '';
+      let diff2 = '';
+      let tempI = i;
+      let tempJ = j;
+      
+      // Look ahead to find where they sync up again
+      while (tempI < text1.length || tempJ < text2.length) {
+        if (text1[tempI] === text2[tempJ] && text1[tempI]) {
+          break;
+        }
+        if (tempI < text1.length) tempI++;
+        if (tempJ < text2.length) tempJ++;
+      }
+      
+      diff1 = text1.slice(i, tempI);
+      diff2 = text2.slice(j, tempJ);
+      
+      if (diff1) result.push({ text: diff1, isDifferent: true });
+      if (diff2 && diff2 !== diff1) result.push({ text: diff2, isDifferent: true });
+      
+      i = tempI;
+      j = tempJ;
+    }
+  }
+  
+  return result;
+}
+
 export const ComparisonView: React.FC = () => {
   const store = useComparisonStore();
   const { comparisonResults, selectVersion, files, rawFiles, suspiciousFiles, toggleSuspicious } = store;
@@ -59,6 +109,7 @@ export const ComparisonView: React.FC = () => {
   const [orderBy, setOrderBy] = useState<OrderBy>('id');
   const [includeFileInfo, setIncludeFileInfo] = useState(false);
   const [searchInRaw, setSearchInRaw] = useState(false);
+  const [selectedCells, setSelectedCells] = useState<SelectedCell[]>([]);
   
   // Function to detect translation change patterns
   const getTranslationPattern = (result: ComparisonResult, fileIndex: number): 'changed' | 'consistent-after-change' | 'reverted' | null => {
@@ -351,6 +402,31 @@ export const ComparisonView: React.FC = () => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column' }}>
       <Stack spacing={{ xs: 1, sm: 2 }} sx={{ mb: 2 }}>
+        {selectedCells.length > 0 && (
+          <Alert 
+            severity="info" 
+            icon={<CompareArrows />}
+            action={
+              <Button size="small" onClick={() => setSelectedCells([])}>
+                Clear
+              </Button>
+            }
+          >
+            {selectedCells.length === 1 ? (
+              <Typography variant="body2">
+                <strong>Cell selected:</strong> {selectedCells[0].fileName} - Row ID: {selectedCells[0].resultId}
+                <br />
+                <em>Hold Shift and click another cell in the same row to compare</em>
+              </Typography>
+            ) : (
+              <Typography variant="body2">
+                <strong>Comparing:</strong> {selectedCells[0].fileName} vs {selectedCells[1].fileName}
+                <br />
+                <em>Yellow highlights show differences</em>
+              </Typography>
+            )}
+          </Alert>
+        )}
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Stack>
             <Typography variant="h5">
@@ -573,7 +649,7 @@ export const ComparisonView: React.FC = () => {
         <Table stickyHeader size="small">
           <TableHead>
             <TableRow>
-              <TableCell>
+              <TableCell sx={{ width: '10%' }}>
                 <TableSortLabel
                   active={orderBy === 'id'}
                   direction={orderBy === 'id' ? order : 'asc'}
@@ -582,7 +658,7 @@ export const ComparisonView: React.FC = () => {
                   ID
                 </TableSortLabel>
               </TableCell>
-              <TableCell>
+              <TableCell sx={{ width: '10%' }}>
                 <TableSortLabel
                   active={orderBy === 'status'}
                   direction={orderBy === 'status' ? order : 'asc'}
@@ -591,7 +667,7 @@ export const ComparisonView: React.FC = () => {
                   Status
                 </TableSortLabel>
               </TableCell>
-              <TableCell>
+              <TableCell sx={{ width: '20%' }}>
                 <TableSortLabel
                   active={orderBy === 'source'}
                   direction={orderBy === 'source' ? order : 'asc'}
@@ -603,7 +679,7 @@ export const ComparisonView: React.FC = () => {
               {loadedFiles.map(fileName => {
                 const file = files[fileName];
                 return (
-                  <TableCell key={fileName}>
+                  <TableCell key={fileName} sx={{ width: `${50 / loadedFiles.length}%` }}>
                     <TableSortLabel
                       active={orderBy === fileName}
                       direction={orderBy === fileName ? order : 'asc'}
@@ -615,6 +691,7 @@ export const ComparisonView: React.FC = () => {
                 );
               })}
               <TableCell align="center" sx={{ 
+                width: '10%',
                 minWidth: { xs: 150, sm: 180, md: 200 },
                 display: { xs: 'none', sm: 'table-cell' }
               }}>Select Version</TableCell>
@@ -707,20 +784,75 @@ export const ComparisonView: React.FC = () => {
                       borderWidth = 1;
                     }
                     
+                    // Check if this cell is selected
+                    const isSelected = selectedCells.some(
+                      cell => cell.resultId === result.id && cell.fileName === fileName
+                    );
+                    
+                    // Check if comparing and show differences
+                    const isComparing = selectedCells.length === 2;
+                    const otherCell = isComparing && !isSelected ? 
+                      selectedCells.find(cell => cell.resultId === result.id) : null;
+                    
+                    const handleCellClick = (event: React.MouseEvent) => {
+                      if (!target) return;
+                      
+                      const cellData: SelectedCell = {
+                        resultId: result.id,
+                        fileName,
+                        content: target
+                      };
+                      
+                      if (event.shiftKey && selectedCells.length === 1) {
+                        // Shift-click: add second cell for comparison
+                        if (selectedCells[0].resultId === result.id && selectedCells[0].fileName !== fileName) {
+                          setSelectedCells([selectedCells[0], cellData]);
+                        }
+                      } else if (!event.shiftKey) {
+                        // Regular click: select single cell or clear
+                        if (isSelected) {
+                          setSelectedCells([]);
+                        } else {
+                          setSelectedCells([cellData]);
+                        }
+                      }
+                    };
+                    
                     return (
                       <TableCell key={fileName}>
-                        <Box sx={{ 
-                          backgroundColor: bgColor,
-                          border: borderWidth > 0 ? `${borderWidth}px solid` : 'none',
-                          borderColor: borderColor,
-                          p: { xs: 0.5, sm: 0.75, md: 1 },
-                          borderRadius: 1,
-                          position: 'relative',
-                          fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                          wordBreak: 'break-word',
-                          whiteSpace: 'pre-wrap'
-                        }}>
-                          {target || '-'}
+                        <Box 
+                          onClick={handleCellClick}
+                          sx={{ 
+                            backgroundColor: isSelected ? 'primary.light' : bgColor,
+                            border: isSelected ? '2px solid' : borderWidth > 0 ? `${borderWidth}px solid` : 'none',
+                            borderColor: isSelected ? 'primary.main' : borderColor,
+                            p: { xs: 0.5, sm: 0.75, md: 1 },
+                            borderRadius: 1,
+                            position: 'relative',
+                            fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                            wordBreak: 'break-word',
+                            whiteSpace: 'pre-wrap',
+                            cursor: target ? 'pointer' : 'default',
+                            '&:hover': target ? {
+                              backgroundColor: isSelected ? 'primary.light' : 'action.hover'
+                            } : {}
+                          }}>
+                          {otherCell && target ? (
+                            // Show differences if comparing
+                            getDifferences(otherCell.content, target).map((part, idx) => (
+                              <span 
+                                key={idx}
+                                style={{
+                                  backgroundColor: part.isDifferent ? '#ffeb3b' : 'transparent',
+                                  fontWeight: part.isDifferent ? 'bold' : 'normal'
+                                }}
+                              >
+                                {part.text}
+                              </span>
+                            ))
+                          ) : (
+                            target || '-'
+                          )}
                           {pattern === 'changed' && (
                             <Box
                               sx={{
