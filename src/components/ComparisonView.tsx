@@ -481,7 +481,7 @@ export const ComparisonView: React.FC = () => {
         </Stack>
       </Stack>
       
-      <TableContainer component={Paper} sx={{ maxHeight: '70vh' }}>
+      <TableContainer component={Paper} sx={{ maxHeight: '80vh' }}>
         <Table stickyHeader size="small">
           <TableHead>
             <TableRow>
@@ -503,7 +503,7 @@ export const ComparisonView: React.FC = () => {
                   Status
                 </TableSortLabel>
               </TableCell>
-              <TableCell sx={{ minWidth: 200 }}>
+              <TableCell sx={{ minWidth: 150, maxWidth: '20%' }}>
                 <TableSortLabel
                   active={orderBy === 'source'}
                   direction={orderBy === 'source' ? order : 'asc'}
@@ -515,7 +515,7 @@ export const ComparisonView: React.FC = () => {
               {loadedFiles.map(fileName => {
                 const file = files[fileName];
                 return (
-                  <TableCell key={fileName} sx={{ minWidth: 200 }}>
+                  <TableCell key={fileName} sx={{ minWidth: 120, maxWidth: '15%' }}>
                     <TableSortLabel
                       active={orderBy === fileName}
                       direction={orderBy === fileName ? order : 'asc'}
@@ -526,7 +526,7 @@ export const ComparisonView: React.FC = () => {
                   </TableCell>
                 );
               })}
-              <TableCell align="center" sx={{ minWidth: 250 }}>Select Version</TableCell>
+              <TableCell align="center" sx={{ minWidth: 200 }}>Select Version</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>

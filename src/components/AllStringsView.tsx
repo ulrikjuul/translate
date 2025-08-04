@@ -270,8 +270,8 @@ export const AllStringsView: React.FC = () => {
         />
       </Stack>
       
-      <TableContainer component={Paper}>
-        <Table size="small">
+      <TableContainer component={Paper} sx={{ maxHeight: '80vh' }}>
+        <Table size="small" stickyHeader>
           <TableHead>
             <TableRow>
               <TableCell>File</TableCell>

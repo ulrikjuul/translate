@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Container, CssBaseline, ThemeProvider, createTheme, ToggleButton, ToggleButtonGroup, Box, Divider, Typography } from '@mui/material';
+import { CssBaseline, ThemeProvider, createTheme, ToggleButton, ToggleButtonGroup, Box, Divider, Typography } from '@mui/material';
 import { CompareArrows, ViewList } from '@mui/icons-material';
 import { FileUploadSection } from './components/FileUpload';
 import { ComparisonView } from './components/ComparisonView';
@@ -31,7 +31,7 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Box sx={{ px: 2, py: 4 }}>
         <AutoLoadFiles />
         
         <Divider sx={{ my: 3 }} />
@@ -68,7 +68,7 @@ function App() {
         ) : (
           <AllStringsView />
         )}
-      </Container>
+      </Box>
     </ThemeProvider>
   );
 }
