@@ -152,18 +152,30 @@ export const useComparisonStore = create<ComparisonStore>((set, get) => ({
     const firstFile = Object.values(files).find(f => f !== null);
     if (!firstFile) return null;
     
+    // Find the LATEST file if it exists
+    const latestFileName = Object.entries(files).find(([_, file]) => 
+      file?.fileIdentifier === 'LATEST'
+    )?.[0] as FileName | undefined;
+    
     const mergedTransUnits = comparisonResults.map(result => {
-      if (!result.selectedVersion) {
-        // If no version selected, use first available
-        result.selectedVersion = result.inFiles[0];
+      let versionToUse = result.selectedVersion;
+      
+      if (!versionToUse) {
+        // If no version selected, try to use LATEST if available
+        if (latestFileName && result.inFiles.includes(latestFileName)) {
+          versionToUse = latestFileName;
+        } else {
+          // Otherwise use the last available file (highest number)
+          versionToUse = result.inFiles[result.inFiles.length - 1] || result.inFiles[0];
+        }
       }
       
-      const selectedFile = files[result.selectedVersion];
+      const selectedFile = files[versionToUse];
       const unit = selectedFile?.transUnits.find(u => u.source === result.source);
       
       if (!unit) {
         // Fallback: create unit from comparison result
-        const targetKey = `${result.selectedVersion}Target` as keyof ComparisonResult;
+        const targetKey = `${versionToUse}Target` as keyof ComparisonResult;
         return {
           id: result.id,
           source: result.source,

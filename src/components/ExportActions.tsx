@@ -1,11 +1,11 @@
 import React from 'react';
-import { Box, Button, Stack, Alert, Snackbar } from '@mui/material';
-import { Download, RestartAlt } from '@mui/icons-material';
+import { Box, Button, Stack, Alert, Snackbar, Typography, Chip } from '@mui/material';
+import { Download, RestartAlt, Info } from '@mui/icons-material';
 import { useComparisonStore } from '../store/useComparisonStore';
 import { generateXliff } from '../utils/xliffParser';
 
 export const ExportActions: React.FC = () => {
-  const { getMergedFile, reset, comparisonResults } = useComparisonStore();
+  const { getMergedFile, reset, comparisonResults, files } = useComparisonStore();
   const [showSuccess, setShowSuccess] = React.useState(false);
   
   const handleExport = () => {
@@ -37,16 +37,33 @@ export const ExportActions: React.FC = () => {
   };
   
   const unselectedCount = comparisonResults.filter(r => 
-    !r.selectedVersion && (r.file1Target || r.file2Target)
+    !r.selectedVersion && r.inFiles.length > 0
   ).length;
+  
+  const selectedCount = comparisonResults.filter(r => 
+    r.selectedVersion && r.inFiles.length > 0
+  ).length;
+  
+  // Find if LATEST file exists
+  const hasLatestFile = Object.values(files).some(file => 
+    file?.fileIdentifier === 'LATEST'
+  );
   
   if (comparisonResults.length === 0) return null;
   
   return (
     <Box sx={{ mt: 4 }}>
       {unselectedCount > 0 && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
-          {unselectedCount} translation{unselectedCount !== 1 ? 's' : ''} still need a version selected.
+        <Alert 
+          severity="info" 
+          icon={<Info />}
+          sx={{ mb: 2 }}
+        >
+          <Typography variant="body2">
+            <strong>{selectedCount}</strong> strings have explicit selections.
+            <br />
+            <strong>{unselectedCount}</strong> strings will use {hasLatestFile ? 'LATEST' : 'the most recent'} version as default.
+          </Typography>
         </Alert>
       )}
       
@@ -57,7 +74,6 @@ export const ExportActions: React.FC = () => {
           size="large"
           startIcon={<Download />}
           onClick={handleExport}
-          disabled={unselectedCount > 0}
         >
           Export Merged XLIFF
         </Button>

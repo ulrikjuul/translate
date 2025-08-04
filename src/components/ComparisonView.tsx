@@ -222,6 +222,23 @@ export const ComparisonView: React.FC = () => {
     setHiddenColumns(newHidden);
   };
   
+  const selectAllLatest = () => {
+    // Find the LATEST file
+    const latestFile = loadedFiles.find(fileName => {
+      const file = files[fileName];
+      return file?.fileIdentifier === 'LATEST';
+    });
+    
+    if (latestFile) {
+      // Select LATEST for all strings where it's available
+      comparisonResults.forEach(result => {
+        if (result.inFiles.includes(latestFile)) {
+          selectVersion(result.id, latestFile);
+        }
+      });
+    }
+  };
+  
   const handleRequestSort = (property: OrderBy) => {
     const isAsc = orderBy === property && order === 'asc';
     setOrder(isAsc ? 'desc' : 'asc');
@@ -494,6 +511,18 @@ export const ComparisonView: React.FC = () => {
             <Typography variant="body2" color="text.secondary">
               {comparisonResults.length} unique source strings compared across {loadedFiles.length} files
             </Typography>
+          </Stack>
+          <Stack direction="row" spacing={2}>
+            {loadedFiles.some(fileName => files[fileName]?.fileIdentifier === 'LATEST') && (
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={selectAllLatest}
+                startIcon={<CheckCircle />}
+              >
+                Select All LATEST
+              </Button>
+            )}
           </Stack>
           <Stack spacing={1} alignItems="flex-end">
             {searchTerm && (
