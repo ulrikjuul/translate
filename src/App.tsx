@@ -6,6 +6,7 @@ import { ComparisonView } from './components/ComparisonView';
 import { AllStringsView } from './components/AllStringsView';
 import { ExportActions } from './components/ExportActions';
 import { AutoLoadFiles } from './components/AutoLoadFiles';
+import { AdditionalFileUpload } from './components/AdditionalFileUpload';
 
 const theme = createTheme({
   palette: {
@@ -33,6 +34,8 @@ function App() {
       <CssBaseline />
       <Box sx={{ px: 2, py: 4 }}>
         <AutoLoadFiles />
+        
+        <AdditionalFileUpload />
         
         <Divider sx={{ my: 3 }} />
         

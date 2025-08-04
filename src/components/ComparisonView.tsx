@@ -24,9 +24,10 @@ import {
   Button,
   IconButton,
   InputAdornment,
-  Checkbox
+  Checkbox,
+  Tooltip
 } from '@mui/material';
-import { Search, Clear } from '@mui/icons-material';
+import { Search, Clear, Warning } from '@mui/icons-material';
 import { useComparisonStore } from '../store/useComparisonStore';
 import type { ComparisonResult, FileName } from '../types/xliff';
 
@@ -48,10 +49,10 @@ const FILE_COLORS = {
 
 export const ComparisonView: React.FC = () => {
   const store = useComparisonStore();
-  const { comparisonResults, selectVersion, files, rawFiles } = store;
+  const { comparisonResults, selectVersion, files, rawFiles, suspiciousFiles, toggleSuspicious } = store;
   const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'different' | 'not-identical' | FileName>('all');
+  const [filterType, setFilterType] = useState<'all' | 'different' | 'not-identical' | 'latest-matches-suspicious' | FileName>('all');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [order, setOrder] = useState<Order>('asc');
@@ -160,11 +161,36 @@ export const ComparisonView: React.FC = () => {
 
   const filteredResults = comparisonResults.filter(result => {
     // First apply filter type
-    const matchesFilter = 
+    let matchesFilter = 
       filterType === 'all' ||
       (filterType === 'different' && result.isDifferent && result.inFiles.length > 1) ||
       (filterType === 'not-identical' && (result.isDifferent || result.inFiles.length === 1)) ||
       (filterType.startsWith('file') && result[`${filterType}Only` as keyof ComparisonResult]);
+    
+    // Special filter for LATEST matching suspicious files
+    if (filterType === 'latest-matches-suspicious') {
+      // Find the LATEST file
+      const latestFile = loadedFiles.find(fileName => {
+        const file = files[fileName];
+        return file?.fileIdentifier === 'LATEST';
+      });
+      
+      if (latestFile) {
+        const latestTarget = result[`${latestFile}Target` as keyof ComparisonResult] as string | undefined;
+        
+        // Check if LATEST matches any suspicious file
+        matchesFilter = false;
+        for (const suspiciousFileName of suspiciousFiles) {
+          const suspiciousTarget = result[`${suspiciousFileName}Target` as keyof ComparisonResult] as string | undefined;
+          if (latestTarget && suspiciousTarget && latestTarget === suspiciousTarget) {
+            matchesFilter = true;
+            break;
+          }
+        }
+      } else {
+        matchesFilter = false;
+      }
+    }
     
     if (!matchesFilter) return false;
     
@@ -310,14 +336,19 @@ export const ComparisonView: React.FC = () => {
           {loadedFiles.map(fileName => {
             const file = files[fileName];
             if (!file) return null;
+            const isSuspicious = suspiciousFiles.has(fileName);
             return (
-              <Chip
-                key={fileName}
-                label={`${file.fileIdentifier || fileName}: ${file.transUnits.length} strings`}
-                variant="filled"
-                color={FILE_COLORS[fileName] as any}
-                size="small"
-              />
+              <Tooltip key={fileName} title={isSuspicious ? "Marked as suspicious" : "Click to mark as suspicious"}>
+                <Chip
+                  label={`${file.fileIdentifier || fileName}: ${file.transUnits.length} strings`}
+                  variant={isSuspicious ? "outlined" : "filled"}
+                  color={isSuspicious ? "warning" : FILE_COLORS[fileName] as any}
+                  size="small"
+                  icon={isSuspicious ? <Warning /> : undefined}
+                  onClick={() => toggleSuspicious(fileName)}
+                  sx={{ cursor: 'pointer' }}
+                />
+              </Tooltip>
             );
           })}
         </Stack>
@@ -446,6 +477,7 @@ export const ComparisonView: React.FC = () => {
               <MenuItem value="all">All Translations</MenuItem>
               <MenuItem value="different">Different Only</MenuItem>
               <MenuItem value="not-identical">Exclude Identical</MenuItem>
+              <MenuItem value="latest-matches-suspicious">LATEST Matches Suspicious</MenuItem>
               {loadedFiles.map(fileName => {
                 const file = files[fileName];
                 return (
@@ -532,8 +564,32 @@ export const ComparisonView: React.FC = () => {
           <TableBody>
             {sortedResults
               .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-              .map((result) => (
-                <TableRow key={result.id}>
+              .map((result) => {
+                // Check if LATEST matches any suspicious file for this row
+                const latestFile = loadedFiles.find(fileName => {
+                  const file = files[fileName];
+                  return file?.fileIdentifier === 'LATEST';
+                });
+                
+                let latestMatchesSuspicious = false;
+                if (latestFile) {
+                  const latestTarget = result[`${latestFile}Target` as keyof ComparisonResult] as string | undefined;
+                  for (const suspiciousFileName of suspiciousFiles) {
+                    const suspiciousTarget = result[`${suspiciousFileName}Target` as keyof ComparisonResult] as string | undefined;
+                    if (latestTarget && suspiciousTarget && latestTarget === suspiciousTarget) {
+                      latestMatchesSuspicious = true;
+                      break;
+                    }
+                  }
+                }
+                
+                return (
+                <TableRow 
+                  key={result.id}
+                  sx={{
+                    backgroundColor: latestMatchesSuspicious ? 'warning.lighter' : 'inherit'
+                  }}
+                >
                   <TableCell>{result.id}</TableCell>
                   <TableCell>{getStatusChip(result)}</TableCell>
                   <TableCell>{result.source}</TableCell>
@@ -629,7 +685,8 @@ export const ComparisonView: React.FC = () => {
                     )}
                   </TableCell>
                 </TableRow>
-              ))}
+              );
+            })
           </TableBody>
         </Table>
         <TablePagination

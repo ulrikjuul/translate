@@ -16,6 +16,8 @@ interface ComparisonStore {
   files: Record<FileName, XliffFile | null>;
   rawFiles: Record<FileName, string | null>;
   comparisonResults: ComparisonResult[];
+  suspiciousFiles: Set<FileName>;
+  nextFileSlot: number;
   
   setFile: (fileNum: number, file: XliffFile, rawContent?: string) => void;
   getFile: (fileNum: number) => XliffFile | null;
@@ -25,6 +27,9 @@ interface ComparisonStore {
   getMergedFile: () => XliffFile | null;
   getAllStrings: () => AllStringsResult[];
   reset: () => void;
+  toggleSuspicious: (fileName: FileName) => void;
+  getNextFileSlot: () => number | null;
+  addAdditionalFile: (file: XliffFile, rawContent: string) => void;
 }
 
 const createEmptyState = () => {
@@ -43,6 +48,8 @@ const createEmptyState = () => {
 export const useComparisonStore = create<ComparisonStore>((set, get) => ({
   ...createEmptyState(),
   comparisonResults: [],
+  suspiciousFiles: new Set<FileName>(),
+  nextFileSlot: 1,
   
   setFile: (fileNum, file, rawContent) => {
     const key = `file${fileNum}` as FileName;
@@ -201,8 +208,41 @@ export const useComparisonStore = create<ComparisonStore>((set, get) => ({
   reset: () => {
     set({
       ...createEmptyState(),
-      comparisonResults: []
+      comparisonResults: [],
+      suspiciousFiles: new Set<FileName>(),
+      nextFileSlot: 1
     });
+  },
+  
+  toggleSuspicious: (fileName) => {
+    set(state => {
+      const newSuspicious = new Set(state.suspiciousFiles);
+      if (newSuspicious.has(fileName)) {
+        newSuspicious.delete(fileName);
+      } else {
+        newSuspicious.add(fileName);
+      }
+      return { suspiciousFiles: newSuspicious };
+    });
+  },
+  
+  getNextFileSlot: () => {
+    const { files } = get();
+    for (let i = 1; i <= 10; i++) {
+      const key = `file${i}` as FileName;
+      if (!files[key]) {
+        return i;
+      }
+    }
+    return null; // All slots full
+  },
+  
+  addAdditionalFile: (file, rawContent) => {
+    const slot = get().getNextFileSlot();
+    if (slot) {
+      get().setFile(slot, file, rawContent);
+      set({ nextFileSlot: slot + 1 });
+    }
   }
 }));
 
