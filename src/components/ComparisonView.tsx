@@ -159,8 +159,17 @@ export const ComparisonView: React.FC = () => {
   };
 
   const filteredResults = comparisonResults.filter(result => {
-    const searchLower = searchTerm.toLowerCase().trim();
+    // First apply filter type
+    const matchesFilter = 
+      filterType === 'all' ||
+      (filterType === 'different' && result.isDifferent && result.inFiles.length > 1) ||
+      (filterType === 'not-identical' && (result.isDifferent || result.inFiles.length === 1)) ||
+      (filterType.startsWith('file') && result[`${filterType}Only` as keyof ComparisonResult]);
     
+    if (!matchesFilter) return false;
+    
+    // Then apply search if there's a search term
+    const searchLower = searchTerm.toLowerCase().trim();
     if (!searchLower) return true;
     
     let matchesSearch = false;
@@ -206,13 +215,7 @@ export const ComparisonView: React.FC = () => {
       }
     }
     
-    const matchesFilter = 
-      filterType === 'all' ||
-      (filterType === 'different' && result.isDifferent && result.inFiles.length > 1) ||
-      (filterType === 'not-identical' && (result.isDifferent || result.inFiles.length === 1)) ||
-      (filterType.startsWith('file') && result[`${filterType}Only` as keyof ComparisonResult]);
-    
-    return matchesSearch && matchesFilter;
+    return matchesSearch;
   });
 
   const sortedResults = [...filteredResults].sort(getComparator(order, orderBy));
@@ -435,7 +438,10 @@ export const ComparisonView: React.FC = () => {
             <Select
               value={filterType}
               label="Filter"
-              onChange={(e) => setFilterType(e.target.value as any)}
+              onChange={(e) => {
+                setFilterType(e.target.value as any);
+                setPage(0);
+              }}
             >
               <MenuItem value="all">All Translations</MenuItem>
               <MenuItem value="different">Different Only</MenuItem>
