@@ -949,39 +949,46 @@ export const ComparisonView: React.FC = () => {
                     );
                   })}
                   <TableCell align="center" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
-                    {result.inFiles.length > 0 && (
-                      <RadioGroup
-                        value={result.selectedVersion || ''}
-                        onChange={(e) => selectVersion(result.id, e.target.value as FileName)}
-                        sx={{
-                          display: 'flex',
-                          flexDirection: result.inFiles.length > 3 ? 'column' : 'row',
-                          flexWrap: 'wrap',
-                          gap: 0.5,
-                          '& .MuiFormControlLabel-root': {
-                            margin: 0,
-                            minWidth: result.inFiles.length > 3 ? '80px' : 'auto'
-                          }
-                        }}
-                      >
-                        {result.inFiles.map(fileName => {
-                          const targetKey = `${fileName}Target` as keyof ComparisonResult;
-                          if (!result[targetKey]) return null;
-                          
-                          const file = files[fileName];
-                          const label = file?.fileIdentifier || fileName.replace('file', '');
-                          
-                          return (
-                            <FormControlLabel
-                              key={fileName}
-                              value={fileName}
-                              control={<Radio size="small" />}
-                              label={label}
-                            />
-                          );
-                        })}
-                      </RadioGroup>
-                    )}
+                    {result.inFiles.length > 0 && (() => {
+                      const visibleOptions = result.inFiles.filter(fileName => !hiddenColumns.has(fileName));
+                      if (visibleOptions.length === 0) return null;
+                      
+                      return (
+                        <RadioGroup
+                          value={result.selectedVersion || ''}
+                          onChange={(e) => selectVersion(result.id, e.target.value as FileName)}
+                          sx={{
+                            display: 'flex',
+                            flexDirection: visibleOptions.length > 3 ? 'column' : 'row',
+                            flexWrap: 'wrap',
+                            gap: 0.5,
+                            '& .MuiFormControlLabel-root': {
+                              margin: 0,
+                              minWidth: visibleOptions.length > 3 ? '80px' : 'auto'
+                            }
+                          }}
+                        >
+                        {result.inFiles
+                          .filter(fileName => !hiddenColumns.has(fileName)) // Only show visible columns
+                          .map(fileName => {
+                            const targetKey = `${fileName}Target` as keyof ComparisonResult;
+                            if (!result[targetKey]) return null;
+                            
+                            const file = files[fileName];
+                            const label = file?.fileIdentifier || fileName.replace('file', '');
+                            
+                            return (
+                              <FormControlLabel
+                                key={fileName}
+                                value={fileName}
+                                control={<Radio size="small" />}
+                                label={label}
+                              />
+                            );
+                          })}
+                        </RadioGroup>
+                      );
+                    })()}
                   </TableCell>
                 </TableRow>
                 );
