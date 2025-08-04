@@ -36,7 +36,7 @@ const createEmptyState = () => {
   const files: Record<FileName, XliffFile | null> = {} as any;
   const rawFiles: Record<FileName, string | null> = {} as any;
   
-  for (let i = 1; i <= 10; i++) {
+  for (let i = 1; i <= 15; i++) {
     const key = `file${i}` as FileName;
     files[key] = null;
     rawFiles[key] = null;
@@ -99,7 +99,7 @@ export const useComparisonStore = create<ComparisonStore>((set, get) => ({
       const targets: (string | undefined)[] = [];
       
       // Check each file for this source
-      for (let i = 1; i <= 10; i++) {
+      for (let i = 1; i <= 15; i++) {
         const key = `file${i}` as FileName;
         const file = files[key];
         if (file) {
@@ -228,7 +228,7 @@ export const useComparisonStore = create<ComparisonStore>((set, get) => ({
   
   getNextFileSlot: () => {
     const { files } = get();
-    for (let i = 1; i <= 10; i++) {
+    for (let i = 1; i <= 15; i++) {
       const key = `file${i}` as FileName;
       if (!files[key]) {
         return i;

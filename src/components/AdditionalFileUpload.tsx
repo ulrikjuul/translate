@@ -74,7 +74,7 @@ export const AdditionalFileUpload: React.FC = () => {
   if (!nextSlot) {
     return (
       <Alert severity="info">
-        Maximum 10 files can be loaded. Remove existing files to add more.
+        Maximum 15 files can be loaded. Remove existing files to add more.
       </Alert>
     );
   }
@@ -91,7 +91,7 @@ export const AdditionalFileUpload: React.FC = () => {
               Additional Files
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              {loadedCount} of 10 files loaded. {10 - loadedCount} slots available.
+              {loadedCount} of 15 files loaded. {15 - loadedCount} slots available.
             </Typography>
           </Stack>
           <Button

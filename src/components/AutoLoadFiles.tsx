@@ -113,8 +113,8 @@ export const AutoLoadFiles: React.FC = () => {
       const sortedFiles = sortFiles(fileList);
       setAvailableFiles(sortedFiles);
       
-      // Load files in order (up to 10)
-      const filesToLoad = sortedFiles.slice(0, 10);
+      // Load files in order (up to 15)
+      const filesToLoad = sortedFiles.slice(0, 15);
       const loaded: string[] = [];
       const failed: string[] = [];
       

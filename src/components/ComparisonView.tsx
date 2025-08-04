@@ -45,7 +45,12 @@ const FILE_COLORS = {
   file7: 'info',
   file8: 'warning',
   file9: 'secondary',
-  file10: 'success'
+  file10: 'success',
+  file11: 'error',
+  file12: 'primary',
+  file13: 'info',
+  file14: 'warning',
+  file15: 'secondary'
 } as const;
 
 interface SelectedCell {

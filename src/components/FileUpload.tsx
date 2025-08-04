@@ -120,11 +120,11 @@ export const FileUploadSection: React.FC = () => {
           fontSize: { xs: '0.875rem', sm: '1rem' }
         }}
       >
-        Upload 2-10 XLIFF files to compare translations
+        Upload 2-15 XLIFF files to compare translations
       </Typography>
       
       <Grid container spacing={2}>
-        {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
+        {Array.from({ length: 15 }, (_, i) => i + 1).map(num => (
           <Grid key={num} size={{ xs: 6, sm: 4, md: 3, lg: 2.4 }}>
             <FileUpload 
               fileNum={num}

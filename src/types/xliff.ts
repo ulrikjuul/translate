@@ -17,7 +17,7 @@ export interface XliffFile {
   transUnits: TransUnit[];
 }
 
-export type FileNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+export type FileNumber = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15;
 export type FileName = `file${FileNumber}`;
 
 export interface ComparisonResult {
@@ -33,6 +33,11 @@ export interface ComparisonResult {
   file8Target?: string;
   file9Target?: string;
   file10Target?: string;
+  file11Target?: string;
+  file12Target?: string;
+  file13Target?: string;
+  file14Target?: string;
+  file15Target?: string;
   isDifferent: boolean;
   file1Only?: boolean;
   file2Only?: boolean;
@@ -44,6 +49,11 @@ export interface ComparisonResult {
   file8Only?: boolean;
   file9Only?: boolean;
   file10Only?: boolean;
+  file11Only?: boolean;
+  file12Only?: boolean;
+  file13Only?: boolean;
+  file14Only?: boolean;
+  file15Only?: boolean;
   inFiles: FileName[];
   selectedVersion?: FileName;
 }
