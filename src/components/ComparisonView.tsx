@@ -54,43 +54,63 @@ interface SelectedCell {
   content: string;
 }
 
-function getDifferences(text1: string, text2: string): { text: string; isDifferent: boolean }[] {
-  const result: { text: string; isDifferent: boolean }[] = [];
+function getDifferences(text1: string, text2: string): { text: string; isDifferent: boolean; isAdded?: boolean; isRemoved?: boolean }[] {
+  // Simple word-based diff
+  const words1 = text1.split(/(\s+)/); // Split on whitespace but keep the whitespace
+  const words2 = text2.split(/(\s+)/);
+  const result: { text: string; isDifferent: boolean; isAdded?: boolean; isRemoved?: boolean }[] = [];
+  
   let i = 0, j = 0;
   
-  while (i < text1.length || j < text2.length) {
-    if (text1[i] === text2[j]) {
-      let same = '';
-      while (i < text1.length && j < text2.length && text1[i] === text2[j]) {
-        same += text1[i];
+  while (i < words1.length || j < words2.length) {
+    if (i >= words1.length) {
+      // Rest of text2 is added
+      result.push({ text: words2.slice(j).join(''), isDifferent: true, isAdded: true });
+      break;
+    } else if (j >= words2.length) {
+      // Rest of text1 is removed
+      result.push({ text: words1.slice(i).join(''), isDifferent: true, isRemoved: true });
+      break;
+    } else if (words1[i] === words2[j]) {
+      // Same word
+      result.push({ text: words1[i], isDifferent: false });
+      i++;
+      j++;
+    } else {
+      // Different - try to find next matching word
+      let nextMatch1 = -1;
+      let nextMatch2 = -1;
+      
+      // Look for next match
+      for (let k = j + 1; k < words2.length && k < j + 10; k++) {
+        if (words1[i] === words2[k]) {
+          nextMatch2 = k;
+          break;
+        }
+      }
+      
+      for (let k = i + 1; k < words1.length && k < i + 10; k++) {
+        if (words1[k] === words2[j]) {
+          nextMatch1 = k;
+          break;
+        }
+      }
+      
+      if (nextMatch2 !== -1 && (nextMatch1 === -1 || nextMatch2 - j < nextMatch1 - i)) {
+        // Text added in text2
+        result.push({ text: words2.slice(j, nextMatch2).join(''), isDifferent: true, isAdded: true });
+        j = nextMatch2;
+      } else if (nextMatch1 !== -1) {
+        // Text removed from text1
+        result.push({ text: words1.slice(i, nextMatch1).join(''), isDifferent: true, isRemoved: true });
+        i = nextMatch1;
+      } else {
+        // Both different, show as changed
+        result.push({ text: words1[i], isDifferent: true, isRemoved: true });
+        result.push({ text: words2[j], isDifferent: true, isAdded: true });
         i++;
         j++;
       }
-      result.push({ text: same, isDifferent: false });
-    } else {
-      // Find next matching character
-      let diff1 = '';
-      let diff2 = '';
-      let tempI = i;
-      let tempJ = j;
-      
-      // Look ahead to find where they sync up again
-      while (tempI < text1.length || tempJ < text2.length) {
-        if (text1[tempI] === text2[tempJ] && text1[tempI]) {
-          break;
-        }
-        if (tempI < text1.length) tempI++;
-        if (tempJ < text2.length) tempJ++;
-      }
-      
-      diff1 = text1.slice(i, tempI);
-      diff2 = text2.slice(j, tempJ);
-      
-      if (diff1) result.push({ text: diff1, isDifferent: true });
-      if (diff2 && diff2 !== diff1) result.push({ text: diff2, isDifferent: true });
-      
-      i = tempI;
-      j = tempJ;
     }
   }
   
@@ -422,7 +442,7 @@ export const ComparisonView: React.FC = () => {
               <Typography variant="body2">
                 <strong>Comparing:</strong> {selectedCells[0].fileName} vs {selectedCells[1].fileName}
                 <br />
-                <em>Yellow highlights show differences</em>
+                <em>Green = added text, Red = removed text</em>
               </Typography>
             )}
           </Alert>
@@ -792,9 +812,13 @@ export const ComparisonView: React.FC = () => {
                     );
                     
                     // Check if comparing and show differences
-                    const isComparing = selectedCells.length === 2;
-                    const otherCell = isComparing && !isSelected ? 
-                      selectedCells.find(cell => cell.resultId === result.id) : null;
+                    const isComparing = selectedCells.length === 2 && 
+                      selectedCells[0].resultId === selectedCells[1].resultId;
+                    
+                    // Only show diff if this cell is one of the selected cells being compared
+                    const shouldShowDiff = isComparing && isSelected;
+                    const otherCell = shouldShowDiff ? 
+                      selectedCells.find(cell => cell.resultId === result.id && cell.fileName !== fileName) : null;
                     
                     const handleCellClick = (event: React.MouseEvent) => {
                       if (!target) return;
@@ -839,14 +863,20 @@ export const ComparisonView: React.FC = () => {
                               backgroundColor: isSelected ? 'primary.light' : 'action.hover'
                             } : {}
                           }}>
-                          {otherCell && target ? (
-                            // Show differences if comparing
+                          {shouldShowDiff && otherCell && target ? (
+                            // Show differences between the two selected cells
                             getDifferences(otherCell.content, target).map((part, idx) => (
                               <span 
                                 key={idx}
                                 style={{
-                                  backgroundColor: part.isDifferent ? '#ffeb3b' : 'transparent',
-                                  fontWeight: part.isDifferent ? 'bold' : 'normal'
+                                  backgroundColor: part.isAdded ? '#c8e6c9' : 
+                                                  part.isRemoved ? '#ffcdd2' : 
+                                                  'transparent',
+                                  textDecoration: part.isRemoved ? 'line-through' : 'none',
+                                  fontWeight: part.isDifferent ? 'bold' : 'normal',
+                                  color: part.isRemoved ? '#d32f2f' : 
+                                         part.isAdded ? '#388e3c' : 
+                                         'inherit'
                                 }}
                               >
                                 {part.text}
