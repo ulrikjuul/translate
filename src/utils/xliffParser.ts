@@ -193,7 +193,7 @@ export const generateXliff = (xliffFile: XliffFile): string => {
   
   return `<?xml version="1.0" encoding="UTF-8"?>
 <xliff version="${xliffFile.version}" xmlns="urn:oasis:names:tc:xliff:document:${xliffFile.version}">
-  <file source-language="${xliffFile.sourceLanguage}" target-language="${xliffFile.targetLanguage}"${originalAttr}>
+  <file source-language="${xliffFile.sourceLanguage}" target-language="${xliffFile.targetLanguage}" datatype="plaintext"${originalAttr}>
     <body>
 ${transUnitsXml}
     </body>
