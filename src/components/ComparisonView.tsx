@@ -41,6 +41,7 @@ import {
 import { Search, Clear, Warning, CompareArrows, ViewColumn, Visibility, VisibilityOff, CheckCircle } from '@mui/icons-material';
 import { useComparisonStore } from '../store/useComparisonStore';
 import type { ComparisonResult, FileName } from '../types/xliff';
+import { SelectionManager } from './SelectionManager';
 
 type Order = 'asc' | 'desc';
 type OrderBy = 'id' | 'status' | 'source' | FileName;
@@ -477,6 +478,7 @@ export const ComparisonView: React.FC = () => {
   
   return (
     <Box>
+      <SelectionManager />
       <Stack spacing={{ xs: 1, sm: 2 }} sx={{ mb: 2 }}>
         {selectedCells.length > 0 && (
           <Alert 

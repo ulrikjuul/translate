@@ -59,3 +59,23 @@ export interface ComparisonResult {
   inFiles: FileName[];
   selectedVersion?: FileName;
 }
+
+export interface SelectionConfig {
+  version: string; // Version of the config format
+  timestamp: string;
+  loadedFiles: {
+    fileName: FileName;
+    originalName: string;
+    identifier: string;
+  }[];
+  selections: {
+    id: string;
+    source: string;
+    selectedVersion?: FileName;
+  }[];
+  metadata?: {
+    totalStrings: number;
+    selectedCount: number;
+    unselectedCount: number;
+  };
+}

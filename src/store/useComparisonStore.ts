@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { XliffFile, ComparisonResult, FileName } from '../types/xliff';
+import type { XliffFile, ComparisonResult, FileName, SelectionConfig } from '../types/xliff';
 
 export interface AllStringsResult {
   id: string;
@@ -30,6 +30,8 @@ interface ComparisonStore {
   toggleSuspicious: (fileName: FileName) => void;
   getNextFileSlot: () => number | null;
   addAdditionalFile: (file: XliffFile, rawContent: string) => void;
+  exportSelectionConfig: () => SelectionConfig;
+  importSelectionConfig: (config: SelectionConfig) => void;
 }
 
 const createEmptyState = () => {
@@ -285,6 +287,63 @@ export const useComparisonStore = create<ComparisonStore>((set, get) => ({
       get().setFile(slot, file, rawContent);
       set({ nextFileSlot: slot + 1 });
     }
+  },
+  
+  exportSelectionConfig: () => {
+    const { files, comparisonResults } = get();
+    
+    // Get loaded files info
+    const loadedFiles = Object.entries(files)
+      .filter(([_, file]) => file !== null)
+      .map(([fileName, file]) => ({
+        fileName: fileName as FileName,
+        originalName: file!.original || '',
+        identifier: file!.fileIdentifier || ''
+      }));
+    
+    // Get selections
+    const selections = comparisonResults
+      .filter(result => result.inFiles.length > 0)
+      .map(result => ({
+        id: result.id,
+        source: result.source,
+        selectedVersion: result.selectedVersion
+      }));
+    
+    // Calculate metadata
+    const selectedCount = selections.filter(s => s.selectedVersion).length;
+    const unselectedCount = selections.filter(s => !s.selectedVersion).length;
+    
+    return {
+      version: '1.0',
+      timestamp: new Date().toISOString(),
+      loadedFiles,
+      selections,
+      metadata: {
+        totalStrings: selections.length,
+        selectedCount,
+        unselectedCount
+      }
+    };
+  },
+  
+  importSelectionConfig: (config) => {
+    const { comparisonResults } = get();
+    
+    // Apply selections from config
+    const updatedResults = comparisonResults.map(result => {
+      const selection = config.selections.find(s => 
+        s.id === result.id || s.source === result.source
+      );
+      
+      if (selection && selection.selectedVersion) {
+        return { ...result, selectedVersion: selection.selectedVersion };
+      }
+      
+      return result;
+    });
+    
+    set({ comparisonResults: updatedResults });
   }
 }));
 
