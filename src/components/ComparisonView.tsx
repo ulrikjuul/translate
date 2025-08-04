@@ -366,25 +366,30 @@ export const ComparisonView: React.FC = () => {
           </Stack>
         </Stack>
         
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} flexWrap="wrap">
-          {loadedFiles.map(fileName => {
-            const file = files[fileName];
-            if (!file) return null;
-            const isSuspicious = suspiciousFiles.has(fileName);
-            return (
-              <Tooltip key={fileName} title={isSuspicious ? "Marked as suspicious" : "Click to mark as suspicious"}>
-                <Chip
-                  label={`${file.fileIdentifier || fileName}: ${file.transUnits.length} strings`}
-                  variant={isSuspicious ? "outlined" : "filled"}
-                  color={isSuspicious ? "warning" : FILE_COLORS[fileName] as any}
-                  size="small"
-                  icon={isSuspicious ? <Warning /> : undefined}
-                  onClick={() => toggleSuspicious(fileName)}
-                  sx={{ cursor: 'pointer' }}
-                />
-              </Tooltip>
-            );
-          })}
+        <Stack spacing={1}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} flexWrap="wrap">
+            {loadedFiles.map(fileName => {
+              const file = files[fileName];
+              if (!file) return null;
+              const isSuspicious = suspiciousFiles.has(fileName);
+              return (
+                <Tooltip key={fileName} title={isSuspicious ? "Marked as suspicious" : "Click to mark as suspicious"}>
+                  <Chip
+                    label={`${file.fileIdentifier || fileName}: ${file.transUnits.length} strings`}
+                    variant={isSuspicious ? "outlined" : "filled"}
+                    color={isSuspicious ? "warning" : FILE_COLORS[fileName] as any}
+                    size="small"
+                    icon={isSuspicious ? <Warning /> : undefined}
+                    onClick={() => toggleSuspicious(fileName)}
+                    sx={{ cursor: 'pointer' }}
+                  />
+                </Tooltip>
+              );
+            })}
+          </Stack>
+          <Typography variant="caption" color="text.secondary">
+            Click any file chip to mark it as 'Suspicious'
+          </Typography>
         </Stack>
         
         <Paper elevation={1} sx={{ p: 2, bgcolor: 'background.default' }}>
