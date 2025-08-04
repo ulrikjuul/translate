@@ -26,9 +26,18 @@ import {
   InputAdornment,
   Checkbox,
   Tooltip,
-  Alert
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText
 } from '@mui/material';
-import { Search, Clear, Warning, CompareArrows } from '@mui/icons-material';
+import { Search, Clear, Warning, CompareArrows, ViewColumn, Visibility, VisibilityOff } from '@mui/icons-material';
 import { useComparisonStore } from '../store/useComparisonStore';
 import type { ComparisonResult, FileName } from '../types/xliff';
 
@@ -135,6 +144,8 @@ export const ComparisonView: React.FC = () => {
   const [includeFileInfo, setIncludeFileInfo] = useState(false);
   const [searchInRaw, setSearchInRaw] = useState(false);
   const [selectedCells, setSelectedCells] = useState<SelectedCell[]>([]);
+  const [hiddenColumns, setHiddenColumns] = useState<Set<FileName>>(new Set());
+  const [columnDialogOpen, setColumnDialogOpen] = useState(false);
   
   // Function to detect translation change patterns
   const getTranslationPattern = (result: ComparisonResult, fileIndex: number): 'changed' | 'consistent-after-change' | 'reverted' | null => {
@@ -189,6 +200,26 @@ export const ComparisonView: React.FC = () => {
   const loadedFiles = Object.entries(files)
     .filter(([_, file]) => file !== null)
     .map(([key]) => key as FileName);
+  
+  // Get visible files (not hidden)
+  const visibleFiles = loadedFiles.filter(fileName => !hiddenColumns.has(fileName));
+  
+  // Calculate column widths based on visible columns
+  const calculateColumnWidth = () => {
+    const fixedWidth = 60 + 100 + 150; // ID + Status + Select
+    const availableWidth = `calc((100% - ${fixedWidth}px) / ${visibleFiles.length + 1})`;
+    return availableWidth;
+  };
+  
+  const toggleColumn = (fileName: FileName) => {
+    const newHidden = new Set(hiddenColumns);
+    if (newHidden.has(fileName)) {
+      newHidden.delete(fileName);
+    } else {
+      newHidden.add(fileName);
+    }
+    setHiddenColumns(newHidden);
+  };
   
   const handleRequestSort = (property: OrderBy) => {
     const isAsc = orderBy === property && order === 'asc';
@@ -581,6 +612,14 @@ export const ComparisonView: React.FC = () => {
       
       <Stack spacing={{ xs: 1, sm: 2 }} sx={{ mb: { xs: 2, sm: 3 } }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          <Button
+            variant="outlined"
+            startIcon={<ViewColumn />}
+            onClick={() => setColumnDialogOpen(true)}
+            size="small"
+          >
+            Show/Hide Columns ({visibleFiles.length}/{loadedFiles.length})
+          </Button>
           <TextField
             label="Search in translations"
             placeholder="Search in ID, source, or translations..."
@@ -687,7 +726,7 @@ export const ComparisonView: React.FC = () => {
                 </TableSortLabel>
               </TableCell>
               <TableCell sx={{ 
-                width: `calc((100% - 60px - 100px - 150px) / ${loadedFiles.length + 1})`
+                width: calculateColumnWidth()
               }}>
                 <TableSortLabel
                   active={orderBy === 'source'}
@@ -697,11 +736,11 @@ export const ComparisonView: React.FC = () => {
                   Source
                 </TableSortLabel>
               </TableCell>
-              {loadedFiles.map(fileName => {
+              {visibleFiles.map(fileName => {
                 const file = files[fileName];
                 return (
                   <TableCell key={fileName} sx={{ 
-                    width: `calc((100% - 60px - 100px - 150px) / ${loadedFiles.length + 1})`
+                    width: calculateColumnWidth()
                   }}>
                     <TableSortLabel
                       active={orderBy === fileName}
@@ -783,7 +822,8 @@ export const ComparisonView: React.FC = () => {
                   }}>
                     {result.source}
                   </TableCell>
-                  {loadedFiles.map((fileName, fileIndex) => {
+                  {visibleFiles.map((fileName) => {
+                    const fileIndex = loadedFiles.indexOf(fileName);
                     const targetKey = `${fileName}Target` as keyof ComparisonResult;
                     const target = result[targetKey] as string | undefined;
                     const pattern = getTranslationPattern(result, fileIndex);
@@ -958,6 +998,49 @@ export const ComparisonView: React.FC = () => {
           onRowsPerPageChange={handleChangeRowsPerPage}
         />
       </TableContainer>
+      
+      {/* Column Visibility Dialog */}
+      <Dialog open={columnDialogOpen} onClose={() => setColumnDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Show/Hide Columns</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            Hide columns to give more space to the remaining ones. At least one column must remain visible.
+          </Typography>
+          <List>
+            {loadedFiles.map(fileName => {
+              const file = files[fileName];
+              const isHidden = hiddenColumns.has(fileName);
+              const canHide = visibleFiles.length > 1;
+              
+              return (
+                <ListItem key={fileName} disablePadding>
+                  <ListItemButton 
+                    onClick={() => canHide || !isHidden ? toggleColumn(fileName) : null}
+                    disabled={!canHide && !isHidden}
+                  >
+                    <ListItemIcon>
+                      {isHidden ? <VisibilityOff /> : <Visibility />}
+                    </ListItemIcon>
+                    <ListItemText 
+                      primary={file?.fileIdentifier || fileName}
+                      secondary={`${file?.transUnits.length || 0} strings`}
+                    />
+                    <Chip
+                      label={isHidden ? 'Hidden' : 'Visible'}
+                      color={isHidden ? 'default' : 'primary'}
+                      size="small"
+                    />
+                  </ListItemButton>
+                </ListItem>
+              );
+            })}
+          </List>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setHiddenColumns(new Set())}>Show All</Button>
+          <Button onClick={() => setColumnDialogOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
