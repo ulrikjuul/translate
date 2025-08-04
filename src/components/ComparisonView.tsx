@@ -51,13 +51,62 @@ export const ComparisonView: React.FC = () => {
   const { comparisonResults, selectVersion, files, rawFiles } = store;
   const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'different' | FileName>('all');
+  const [filterType, setFilterType] = useState<'all' | 'different' | 'not-identical' | FileName>('all');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [order, setOrder] = useState<Order>('asc');
   const [orderBy, setOrderBy] = useState<OrderBy>('id');
   const [includeFileInfo, setIncludeFileInfo] = useState(false);
   const [searchInRaw, setSearchInRaw] = useState(false);
+  
+  // Function to detect translation change patterns
+  const getTranslationPattern = (result: ComparisonResult, fileIndex: number): 'changed' | 'consistent-after-change' | 'reverted' | null => {
+    if (!result.isDifferent || result.inFiles.length <= 1) return null;
+    
+    const currentFileName = loadedFiles[fileIndex] as FileName;
+    const currentTarget = result[`${currentFileName}Target` as keyof ComparisonResult] as string | undefined;
+    
+    if (!currentTarget) return null;
+    
+    // Check if this is where a change was introduced
+    if (fileIndex > 0) {
+      const prevFileName = loadedFiles[fileIndex - 1] as FileName;
+      const prevTarget = result[`${prevFileName}Target` as keyof ComparisonResult] as string | undefined;
+      
+      if (prevTarget && prevTarget !== currentTarget) {
+        // This is where the change happened
+        // Now check if all subsequent files have the same new translation
+        let isConsistent = true;
+        for (let i = fileIndex + 1; i < loadedFiles.length; i++) {
+          const nextFileName = loadedFiles[i] as FileName;
+          const nextTarget = result[`${nextFileName}Target` as keyof ComparisonResult] as string | undefined;
+          if (nextTarget && nextTarget !== currentTarget) {
+            isConsistent = false;
+            break;
+          }
+        }
+        return isConsistent ? 'changed' : 'reverted';
+      }
+      
+      // Check if this continues a consistent change from an earlier file
+      for (let i = fileIndex - 1; i >= 0; i--) {
+        const checkFileName = loadedFiles[i] as FileName;
+        const checkTarget = result[`${checkFileName}Target` as keyof ComparisonResult] as string | undefined;
+        
+        if (i > 0) {
+          const beforeCheckFileName = loadedFiles[i - 1] as FileName;
+          const beforeCheckTarget = result[`${beforeCheckFileName}Target` as keyof ComparisonResult] as string | undefined;
+          
+          if (checkTarget && beforeCheckTarget && checkTarget !== beforeCheckTarget && checkTarget === currentTarget) {
+            // Found where the change started, and current matches it
+            return 'consistent-after-change';
+          }
+        }
+      }
+    }
+    
+    return null;
+  };
   
   // Get loaded files
   const loadedFiles = Object.entries(files)
@@ -160,6 +209,7 @@ export const ComparisonView: React.FC = () => {
     const matchesFilter = 
       filterType === 'all' ||
       (filterType === 'different' && result.isDifferent && result.inFiles.length > 1) ||
+      (filterType === 'not-identical' && (result.isDifferent || result.inFiles.length === 1)) ||
       (filterType.startsWith('file') && result[`${filterType}Only` as keyof ComparisonResult]);
     
     return matchesSearch && matchesFilter;
@@ -270,32 +320,76 @@ export const ComparisonView: React.FC = () => {
         </Stack>
         
         <Paper elevation={1} sx={{ p: 2, bgcolor: 'background.default' }}>
-          <Typography variant="subtitle2" gutterBottom>
-            Comparison Statistics
-          </Typography>
-          <Stack direction="row" spacing={3} flexWrap="wrap">
-            <Typography variant="body2">
-              <strong>Total unique:</strong> {stats.totalUnique}
-            </Typography>
-            {stats.identical > 0 && (
-              <Typography variant="body2" color="success.main">
-                <strong>Identical:</strong> {stats.identical}
+          <Stack spacing={2}>
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>
+                Comparison Statistics
               </Typography>
-            )}
-            {stats.different > 0 && (
-              <Typography variant="body2" color="error.main">
-                <strong>Different:</strong> {stats.different}
-              </Typography>
-            )}
-            {Object.entries(stats.fileOnlyCounts).map(([fileName, count]) => {
-              if (count === 0) return null;
-              const file = files[fileName as FileName];
-              return (
-                <Typography key={fileName} variant="body2" color={`${FILE_COLORS[fileName as FileName]}.main`}>
-                  <strong>{file?.fileIdentifier || fileName} only:</strong> {count}
+              <Stack direction="row" spacing={3} flexWrap="wrap">
+                <Typography variant="body2">
+                  <strong>Total unique:</strong> {stats.totalUnique}
                 </Typography>
-              );
-            })}
+                {stats.identical > 0 && (
+                  <Typography variant="body2" color="success.main">
+                    <strong>Identical:</strong> {stats.identical}
+                  </Typography>
+                )}
+                {stats.different > 0 && (
+                  <Typography variant="body2" color="error.main">
+                    <strong>Different:</strong> {stats.different}
+                  </Typography>
+                )}
+                {Object.entries(stats.fileOnlyCounts).map(([fileName, count]) => {
+                  if (count === 0) return null;
+                  const file = files[fileName as FileName];
+                  return (
+                    <Typography key={fileName} variant="body2" color={`${FILE_COLORS[fileName as FileName]}.main`}>
+                      <strong>{file?.fileIdentifier || fileName} only:</strong> {count}
+                    </Typography>
+                  );
+                })}
+              </Stack>
+            </Box>
+            <Box>
+              <Typography variant="subtitle2" gutterBottom>
+                Color Legend
+              </Typography>
+              <Stack direction="row" spacing={2} flexWrap="wrap" alignItems="center">
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Box sx={{ 
+                    width: 40, 
+                    height: 20, 
+                    bgcolor: 'success.light',
+                    border: '2px solid',
+                    borderColor: 'success.main',
+                    borderRadius: 0.5
+                  }} />
+                  <Typography variant="caption">Change introduced (consistent after)</Typography>
+                </Stack>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Box sx={{ 
+                    width: 40, 
+                    height: 20, 
+                    bgcolor: 'success.lighter',
+                    border: '1px solid',
+                    borderColor: 'success.light',
+                    borderRadius: 0.5
+                  }} />
+                  <Typography variant="caption">Continues consistent change</Typography>
+                </Stack>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Box sx={{ 
+                    width: 40, 
+                    height: 20, 
+                    bgcolor: 'warning.lighter',
+                    border: '1px solid',
+                    borderColor: 'warning.main',
+                    borderRadius: 0.5
+                  }} />
+                  <Typography variant="caption">Change later reverted</Typography>
+                </Stack>
+              </Stack>
+            </Box>
           </Stack>
         </Paper>
       </Stack>
@@ -345,6 +439,7 @@ export const ComparisonView: React.FC = () => {
             >
               <MenuItem value="all">All Translations</MenuItem>
               <MenuItem value="different">Different Only</MenuItem>
+              <MenuItem value="not-identical">Exclude Identical</MenuItem>
               {loadedFiles.map(fileName => {
                 const file = files[fileName];
                 return (
@@ -436,17 +531,59 @@ export const ComparisonView: React.FC = () => {
                   <TableCell>{result.id}</TableCell>
                   <TableCell>{getStatusChip(result)}</TableCell>
                   <TableCell>{result.source}</TableCell>
-                  {loadedFiles.map(fileName => {
+                  {loadedFiles.map((fileName, fileIndex) => {
                     const targetKey = `${fileName}Target` as keyof ComparisonResult;
                     const target = result[targetKey] as string | undefined;
+                    const pattern = getTranslationPattern(result, fileIndex);
+                    
+                    let bgColor = 'transparent';
+                    let borderColor = 'transparent';
+                    let borderWidth = 0;
+                    
+                    if (result.selectedVersion === fileName) {
+                      bgColor = 'action.selected';
+                    } else if (pattern === 'changed') {
+                      // Where the change was introduced and stays consistent
+                      bgColor = 'success.light';
+                      borderColor = 'success.main';
+                      borderWidth = 2;
+                    } else if (pattern === 'consistent-after-change') {
+                      // Continues the consistent change
+                      bgColor = 'success.lighter';
+                      borderColor = 'success.light';
+                      borderWidth = 1;
+                    } else if (pattern === 'reverted') {
+                      // Change that was later reverted
+                      bgColor = 'warning.lighter';
+                      borderColor = 'warning.main';
+                      borderWidth = 1;
+                    }
+                    
                     return (
                       <TableCell key={fileName}>
                         <Box sx={{ 
-                          backgroundColor: result.selectedVersion === fileName ? 'action.selected' : 'transparent',
+                          backgroundColor: bgColor,
+                          border: borderWidth > 0 ? `${borderWidth}px solid` : 'none',
+                          borderColor: borderColor,
                           p: 1,
-                          borderRadius: 1
+                          borderRadius: 1,
+                          position: 'relative'
                         }}>
                           {target || '-'}
+                          {pattern === 'changed' && (
+                            <Box
+                              sx={{
+                                position: 'absolute',
+                                top: 2,
+                                right: 2,
+                                width: 8,
+                                height: 8,
+                                borderRadius: '50%',
+                                bgcolor: 'success.main'
+                              }}
+                              title="Change introduced here and consistent after"
+                            />
+                          )}
                         </Box>
                       </TableCell>
                     );
