@@ -400,7 +400,7 @@ export const ComparisonView: React.FC = () => {
   });
   
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+    <Box>
       <Stack spacing={{ xs: 1, sm: 2 }} sx={{ mb: 2 }}>
         {selectedCells.length > 0 && (
           <Alert 
@@ -639,13 +639,7 @@ export const ComparisonView: React.FC = () => {
         </Stack>
       </Stack>
       
-      <TableContainer component={Paper} sx={{ 
-        maxHeight: 'calc(100vh - 200px)',
-        overflow: 'auto',
-        '& .MuiTable-root': {
-          minWidth: '100%'
-        }
-      }}>
+      <TableContainer component={Paper}>
         <Table stickyHeader size="small">
           <TableHead>
             <TableRow>

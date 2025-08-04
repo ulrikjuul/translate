@@ -34,10 +34,7 @@ function App() {
       <CssBaseline />
       <Box sx={{ 
         px: { xs: 1, sm: 2, md: 3 }, 
-        py: { xs: 2, sm: 3, md: 4 },
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column'
+        py: { xs: 2, sm: 3, md: 4 }
       }}>
         <AutoLoadFiles />
         
