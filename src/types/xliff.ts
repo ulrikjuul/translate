@@ -1,7 +1,9 @@
 export interface TransUnit {
   id: string;
-  source: string;
-  target: string;
+  source: string;  // Source with XML tags preserved
+  sourceText?: string;  // Plain text version for display
+  target: string;  // Target with XML tags preserved
+  targetText?: string;  // Plain text version for display
   note?: string;
   state?: string;
   approved?: boolean;

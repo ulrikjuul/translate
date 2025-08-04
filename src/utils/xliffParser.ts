@@ -107,8 +107,27 @@ export const parseXliff = (xmlContent: string): XliffFile => {
     const targetElement = transUnit.getElementsByTagName('target')[0];
     const noteElement = transUnit.getElementsByTagName('note')[0];
     
-    const source = sourceElement?.textContent || '';
-    const target = targetElement?.textContent || '';
+    // Get inner XML to preserve tags like <g>, <x/>, etc.
+    const getInnerXML = (element: Element | undefined): string => {
+      if (!element) return '';
+      // Convert child nodes to string, preserving tags
+      let xml = '';
+      for (let i = 0; i < element.childNodes.length; i++) {
+        const node = element.childNodes[i];
+        if (node.nodeType === Node.TEXT_NODE) {
+          xml += node.textContent || '';
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          const serializer = new XMLSerializer();
+          xml += serializer.serializeToString(node);
+        }
+      }
+      return xml;
+    };
+    
+    const source = getInnerXML(sourceElement);
+    const sourceText = sourceElement?.textContent || ''; // Plain text for display
+    const target = getInnerXML(targetElement);
+    const targetText = targetElement?.textContent || ''; // Plain text for display
     const note = noteElement?.textContent || undefined;
     const state = targetElement?.getAttribute('state') || undefined;
     const approved = transUnit.getAttribute('approved') === 'yes';
@@ -119,7 +138,9 @@ export const parseXliff = (xmlContent: string): XliffFile => {
     transUnits.push({
       id,
       source,
+      sourceText,
       target,
+      targetText,
       note,
       state,
       approved,
@@ -151,9 +172,11 @@ export const generateXliff = (xliffFile: XliffFile): string => {
       const stateAttr = unit.state ? ` state="${unit.state}"` : '';
       const approvedAttr = unit.approved ? ' approved="yes"' : '';
       
+      // Use the preserved XML version (source/target) which already contains tags
+      // No need to escape since we're preserving the original XML structure
       return `      <trans-unit id="${unit.id}"${approvedAttr}>
-        <source>${escapeXml(unit.source)}</source>
-        <target${stateAttr}>${escapeXml(unit.target)}</target>${noteXml}
+        <source>${unit.source}</source>
+        <target${stateAttr}>${unit.target}</target>${noteXml}
       </trans-unit>`;
     })
     .join('\n');
@@ -170,11 +193,4 @@ ${transUnitsXml}
 </xliff>`;
 };
 
-const escapeXml = (text: string): string => {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-};
+// Removed escapeXml function as we now preserve XML tags directly

@@ -81,10 +81,10 @@ export const useComparisonStore = create<ComparisonStore>((set, get) => ({
     
     const results: ComparisonResult[] = [];
     
-    // Process all files to find unique source strings
+    // Process all files to find unique source strings (using plain text for comparison)
     const allSources = new Set<string>();
     loadedFiles.forEach(([_, file]) => {
-      file.transUnits.forEach(u => allSources.add(u.source));
+      file.transUnits.forEach(u => allSources.add(u.sourceText || u.source));
     });
     
     // Compare all unique source strings
@@ -103,11 +103,13 @@ export const useComparisonStore = create<ComparisonStore>((set, get) => ({
         const key = `file${i}` as FileName;
         const file = files[key];
         if (file) {
-          const unit = file.transUnits.find(u => u.source === source);
+          const unit = file.transUnits.find(u => (u.sourceText || u.source) === source);
           if (unit) {
-            result[`${key}Target` as keyof ComparisonResult] = unit.target as any;
+            // Store the plain text version for display in comparison table
+            result[`${key}Target` as keyof ComparisonResult] = (unit.targetText || unit.target) as any;
             result.inFiles.push(key);
-            targets.push(unit.target);
+            // Use plain text for comparison
+            targets.push(unit.targetText || unit.target);
             if (!result.id) result.id = unit.id;
           }
         }
@@ -171,14 +173,42 @@ export const useComparisonStore = create<ComparisonStore>((set, get) => ({
       }
       
       const selectedFile = files[versionToUse];
-      const unit = selectedFile?.transUnits.find(u => u.source === result.source);
+      // Match based on plain text version for comparison
+      const unit = selectedFile?.transUnits.find(u => (u.sourceText || u.source) === result.source);
       
       if (!unit) {
-        // Fallback: create unit from comparison result
+        // Fallback: Need to find the original unit with XML tags preserved
+        // First, find a unit from any file to get the source with XML tags
+        let sourceWithTags = result.source;
+        
+        for (const fileName of result.inFiles) {
+          const file = files[fileName];
+          const originalUnit = file?.transUnits.find(u => (u.sourceText || u.source) === result.source);
+          if (originalUnit) {
+            sourceWithTags = originalUnit.source; // Get source with XML tags preserved
+            break;
+          }
+        }
+        
+        // Now get the target from the selected version
+        const targetFile = files[versionToUse];
+        const targetUnit = targetFile?.transUnits.find(u => (u.sourceText || u.source) === result.source);
+        
+        if (targetUnit) {
+          return {
+            id: result.id,
+            source: sourceWithTags, // Use source with XML tags
+            target: targetUnit.target, // Use target with XML tags from selected version
+            sourceText: result.source,
+            targetText: targetUnit.targetText || targetUnit.target
+          };
+        }
+        
+        // Last resort fallback - plain text only
         const targetKey = `${versionToUse}Target` as keyof ComparisonResult;
         return {
           id: result.id,
-          source: result.source,
+          source: sourceWithTags,
           target: (result[targetKey] as string) || ''
         };
       }

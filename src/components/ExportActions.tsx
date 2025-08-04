@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Button, Stack, Alert, Snackbar, Typography, Chip } from '@mui/material';
+import { Box, Button, Stack, Alert, Snackbar, Typography } from '@mui/material';
 import { Download, RestartAlt, Info } from '@mui/icons-material';
 import { useComparisonStore } from '../store/useComparisonStore';
 import { generateXliff } from '../utils/xliffParser';
