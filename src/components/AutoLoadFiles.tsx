@@ -144,7 +144,10 @@ export const AutoLoadFiles: React.FC = () => {
   const hasLoadedFiles = Object.values(files).some(f => f !== null);
 
   return (
-    <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
+    <Paper elevation={2} sx={{ 
+      p: { xs: 2, sm: 2.5, md: 3 },
+      mb: { xs: 2, sm: 2.5, md: 3 }
+    }}>
       <Stack spacing={2}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Typography variant="h6">
@@ -201,10 +204,10 @@ export const AutoLoadFiles: React.FC = () => {
           <Typography variant="body2" component="div">
             <strong>How to use:</strong>
             <ol style={{ margin: '8px 0', paddingLeft: '20px' }}>
-              <li>Place your XLIFF files in the <code>/public</code> folder</li>
-              <li>Name your files with identifiers in parentheses (e.g., <code>translation (61).xlf</code>, <code>translation (185).xlf</code>)</li>
-              <li>Run <code>npm run generate-list</code> to auto-generate the file list</li>
-              <li>Click "Load Files from Public Folder" above</li>
+              <li>Place XLIFF files in <code>/public</code></li>
+              <li>Name with identifiers: <code>(61).xlf</code>, <code>(185).xlf</code></li>
+              <li>Run <code>npm run generate-list</code></li>
+              <li>Click "Load Files" above</li>
             </ol>
             <Typography variant="caption" display="block" sx={{ mt: 1 }}>
               Note: The file list is automatically generated when you run <code>npm run dev</code>

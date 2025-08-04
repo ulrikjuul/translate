@@ -81,7 +81,10 @@ export const AdditionalFileUpload: React.FC = () => {
   
   return (
     <>
-      <Paper elevation={1} sx={{ p: 2, mb: 2 }}>
+      <Paper elevation={1} sx={{ 
+        p: { xs: 1.5, sm: 2 },
+        mb: { xs: 1.5, sm: 2 }
+      }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Stack>
             <Typography variant="subtitle1">

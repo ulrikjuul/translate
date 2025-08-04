@@ -32,7 +32,14 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Box sx={{ px: 2, py: 4 }}>
+      <Box sx={{ 
+        px: { xs: 1, sm: 2, md: 3 }, 
+        py: { xs: 2, sm: 3, md: 4 },
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden'
+      }}>
         <AutoLoadFiles />
         
         <AdditionalFileUpload />
@@ -63,14 +70,16 @@ function App() {
           </ToggleButtonGroup>
         </Box>
         
-        {viewMode === 'comparison' ? (
-          <>
-            <ComparisonView />
-            <ExportActions />
-          </>
-        ) : (
-          <AllStringsView />
-        )}
+        <Box sx={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+          {viewMode === 'comparison' ? (
+            <>
+              <ComparisonView />
+              <ExportActions />
+            </>
+          ) : (
+            <AllStringsView />
+          )}
+        </Box>
       </Box>
     </ThemeProvider>
   );

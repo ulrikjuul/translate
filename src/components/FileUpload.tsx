@@ -102,11 +102,24 @@ export const FileUploadSection: React.FC = () => {
   const { setFile, getFile } = store;
   
   return (
-    <Box sx={{ mb: 4 }}>
-      <Typography variant="h4" gutterBottom align="center">
+    <Box sx={{ mb: { xs: 2, sm: 3, md: 4 } }}>
+      <Typography 
+        variant="h4" 
+        gutterBottom 
+        align="center"
+        sx={{ fontSize: { xs: '1.5rem', sm: '2rem', md: '2.5rem' } }}
+      >
         XLIFF Translation Comparison Tool
       </Typography>
-      <Typography variant="subtitle1" align="center" color="text.secondary" sx={{ mb: 3 }}>
+      <Typography 
+        variant="subtitle1" 
+        align="center" 
+        color="text.secondary" 
+        sx={{ 
+          mb: { xs: 2, sm: 3 },
+          fontSize: { xs: '0.875rem', sm: '1rem' }
+        }}
+      >
         Upload 2-10 XLIFF files to compare translations
       </Typography>
       

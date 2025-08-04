@@ -349,8 +349,8 @@ export const ComparisonView: React.FC = () => {
   });
   
   return (
-    <Box>
-      <Stack spacing={2} sx={{ mb: 2 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <Stack spacing={{ xs: 1, sm: 2 }} sx={{ mb: 2 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Stack>
             <Typography variant="h5">
@@ -378,7 +378,7 @@ export const ComparisonView: React.FC = () => {
         </Stack>
         
         <Stack spacing={1}>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} flexWrap="wrap">
+          <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ gap: 0.5 }}>
             {loadedFiles.map(fileName => {
               const file = files[fileName];
               if (!file) return null;
@@ -478,7 +478,7 @@ export const ComparisonView: React.FC = () => {
         </Paper>
       </Stack>
       
-      <Stack spacing={2} sx={{ mb: 3 }}>
+      <Stack spacing={{ xs: 1, sm: 2 }} sx={{ mb: { xs: 2, sm: 3 } }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
           <TextField
             label="Search in translations"
@@ -563,7 +563,13 @@ export const ComparisonView: React.FC = () => {
         </Stack>
       </Stack>
       
-      <TableContainer component={Paper} sx={{ maxHeight: '80vh' }}>
+      <TableContainer component={Paper} sx={{ 
+        flex: 1,
+        overflow: 'auto',
+        '& .MuiTable-root': {
+          minWidth: '100%'
+        }
+      }}>
         <Table stickyHeader size="small">
           <TableHead>
             <TableRow>
@@ -585,7 +591,10 @@ export const ComparisonView: React.FC = () => {
                   Status
                 </TableSortLabel>
               </TableCell>
-              <TableCell sx={{ minWidth: 150, maxWidth: '20%' }}>
+              <TableCell sx={{ 
+                minWidth: { xs: 100, sm: 120, md: 150 },
+                maxWidth: { xs: '25%', sm: '20%', md: '20%' }
+              }}>
                 <TableSortLabel
                   active={orderBy === 'source'}
                   direction={orderBy === 'source' ? order : 'asc'}
@@ -597,7 +606,12 @@ export const ComparisonView: React.FC = () => {
               {loadedFiles.map(fileName => {
                 const file = files[fileName];
                 return (
-                  <TableCell key={fileName} sx={{ minWidth: 120, maxWidth: '15%' }}>
+                  <TableCell key={fileName} sx={{ 
+                    minWidth: { xs: 80, sm: 100, md: 120 },
+                    maxWidth: { xs: '12%', sm: '15%', md: '15%' },
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                    padding: { xs: '4px', sm: '6px', md: '8px' }
+                  }}>
                     <TableSortLabel
                       active={orderBy === fileName}
                       direction={orderBy === fileName ? order : 'asc'}
@@ -608,7 +622,10 @@ export const ComparisonView: React.FC = () => {
                   </TableCell>
                 );
               })}
-              <TableCell align="center" sx={{ minWidth: 200 }}>Select Version</TableCell>
+              <TableCell align="center" sx={{ 
+                minWidth: { xs: 150, sm: 180, md: 200 },
+                display: { xs: 'none', sm: 'table-cell' }
+              }}>Select Version</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -699,9 +716,15 @@ export const ComparisonView: React.FC = () => {
                           backgroundColor: bgColor,
                           border: borderWidth > 0 ? `${borderWidth}px solid` : 'none',
                           borderColor: borderColor,
-                          p: 1,
+                          p: { xs: 0.5, sm: 0.75, md: 1 },
                           borderRadius: 1,
-                          position: 'relative'
+                          position: 'relative',
+                          fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                          wordBreak: 'break-word',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          maxHeight: { xs: '60px', sm: '80px', md: '100px' },
+                          overflowY: 'auto'
                         }}>
                           {target || '-'}
                           {pattern === 'changed' && (
@@ -722,7 +745,7 @@ export const ComparisonView: React.FC = () => {
                       </TableCell>
                     );
                   })}
-                  <TableCell align="center">
+                  <TableCell align="center" sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                     {result.inFiles.length > 0 && (
                       <RadioGroup
                         value={result.selectedVersion || ''}

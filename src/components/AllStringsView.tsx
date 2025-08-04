@@ -178,8 +178,8 @@ export const AllStringsView: React.FC = () => {
   const totalStrings = Object.values(fileCounts).reduce((sum, count) => sum + count, 0);
   
   return (
-    <Box>
-      <Stack spacing={2} sx={{ mb: 2 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <Stack spacing={{ xs: 1, sm: 2 }} sx={{ mb: 2 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Stack>
             <Typography variant="h5">
@@ -221,7 +221,7 @@ export const AllStringsView: React.FC = () => {
         </Paper>
       </Stack>
       
-      <Stack spacing={2} sx={{ mb: 3 }}>
+      <Stack spacing={{ xs: 1, sm: 2 }} sx={{ mb: { xs: 2, sm: 3 } }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
           <TextField
             label="Search in all strings"
@@ -270,7 +270,10 @@ export const AllStringsView: React.FC = () => {
         />
       </Stack>
       
-      <TableContainer component={Paper} sx={{ maxHeight: '80vh' }}>
+      <TableContainer component={Paper} sx={{ 
+        flex: 1,
+        overflow: 'auto'
+      }}>
         <Table size="small" stickyHeader>
           <TableHead>
             <TableRow>
