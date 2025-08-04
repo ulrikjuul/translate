@@ -183,42 +183,53 @@ export const ComparisonView: React.FC = () => {
         for (const suspiciousFileName of suspiciousFiles) {
           const suspiciousTarget = result[`${suspiciousFileName}Target` as keyof ComparisonResult] as string | undefined;
           
-          // Check if this suspicious file introduced a change
+          // Skip if suspicious file doesn't have this string or LATEST doesn't match it
+          if (!suspiciousTarget || latestTarget !== suspiciousTarget) continue;
+          
           const suspiciousIndex = loadedFiles.indexOf(suspiciousFileName);
+          
+          // Check if the suspicious file introduced a change
+          let introducedChange = false;
+          
           if (suspiciousIndex > 0) {
-            // Get the previous file's translation
+            // Check if different from previous file
             const prevFileName = loadedFiles[suspiciousIndex - 1];
             const prevTarget = result[`${prevFileName}Target` as keyof ComparisonResult] as string | undefined;
             
-            // Check if:
-            // 1. The suspicious file changed the translation from the previous file
-            // 2. LATEST has the same translation as the suspicious file
-            if (prevTarget && suspiciousTarget && 
-                prevTarget !== suspiciousTarget && 
-                latestTarget === suspiciousTarget) {
-              matchesFilter = true;
-              break;
+            if (prevTarget && prevTarget !== suspiciousTarget) {
+              introducedChange = true;
             }
           } else if (suspiciousIndex === 0) {
-            // If suspicious file is the first file, check if LATEST matches it and it's different from others
-            if (latestTarget === suspiciousTarget && suspiciousTarget) {
-              // Check if any later file has a different translation
-              let isDifferentFromOthers = false;
-              for (let i = 1; i < loadedFiles.length; i++) {
-                const otherFileName = loadedFiles[i];
-                if (otherFileName !== suspiciousFileName && otherFileName !== latestFile) {
-                  const otherTarget = result[`${otherFileName}Target` as keyof ComparisonResult] as string | undefined;
-                  if (otherTarget && otherTarget !== suspiciousTarget) {
-                    isDifferentFromOthers = true;
-                    break;
-                  }
-                }
+            // First file - check if it's different from the next file
+            if (loadedFiles.length > 1) {
+              const nextFileName = loadedFiles[1];
+              const nextTarget = result[`${nextFileName}Target` as keyof ComparisonResult] as string | undefined;
+              
+              if (nextTarget && nextTarget !== suspiciousTarget) {
+                introducedChange = true;
               }
-              if (isDifferentFromOthers) {
-                matchesFilter = true;
+            }
+          }
+          
+          // Also check if this is truly a change by looking at earlier versions
+          // to avoid false positives where suspicious just continues an existing translation
+          if (!introducedChange && suspiciousIndex > 0) {
+            // Look back to see if there was ever a different translation
+            for (let i = suspiciousIndex - 1; i >= 0; i--) {
+              const earlierFileName = loadedFiles[i];
+              const earlierTarget = result[`${earlierFileName}Target` as keyof ComparisonResult] as string | undefined;
+              
+              if (earlierTarget && earlierTarget !== suspiciousTarget) {
+                // Found a different earlier translation, but suspicious didn't change from immediate predecessor
+                // This means suspicious just continued an existing translation, not introduced a change
                 break;
               }
             }
+          }
+          
+          if (introducedChange) {
+            matchesFilter = true;
+            break;
           }
         }
       } else {
@@ -615,16 +626,28 @@ export const ComparisonView: React.FC = () => {
                   const latestTarget = result[`${latestFile}Target` as keyof ComparisonResult] as string | undefined;
                   for (const suspiciousFileName of suspiciousFiles) {
                     const suspiciousTarget = result[`${suspiciousFileName}Target` as keyof ComparisonResult] as string | undefined;
+                    
+                    // Skip if LATEST doesn't match this suspicious file
+                    if (!suspiciousTarget || latestTarget !== suspiciousTarget) continue;
+                    
                     const suspiciousIndex = loadedFiles.indexOf(suspiciousFileName);
                     
+                    // Check if suspicious file introduced a change
                     if (suspiciousIndex > 0) {
                       const prevFileName = loadedFiles[suspiciousIndex - 1];
                       const prevTarget = result[`${prevFileName}Target` as keyof ComparisonResult] as string | undefined;
                       
-                      // Check if suspicious file changed the translation and LATEST matches it
-                      if (prevTarget && suspiciousTarget && 
-                          prevTarget !== suspiciousTarget && 
-                          latestTarget === suspiciousTarget) {
+                      // Check if suspicious file changed from previous
+                      if (prevTarget && prevTarget !== suspiciousTarget) {
+                        latestMatchesSuspiciousChange = true;
+                        break;
+                      }
+                    } else if (suspiciousIndex === 0 && loadedFiles.length > 1) {
+                      // First file - check if different from next
+                      const nextFileName = loadedFiles[1];
+                      const nextTarget = result[`${nextFileName}Target` as keyof ComparisonResult] as string | undefined;
+                      
+                      if (nextTarget && nextTarget !== suspiciousTarget) {
                         latestMatchesSuspiciousChange = true;
                         break;
                       }
