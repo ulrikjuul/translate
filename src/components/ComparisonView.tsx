@@ -416,7 +416,7 @@ export const ComparisonView: React.FC = () => {
               <Typography variant="body2">
                 <strong>Cell selected:</strong> {selectedCells[0].fileName} - Row ID: {selectedCells[0].resultId}
                 <br />
-                <em>Hold Shift and click another cell in the same row to compare</em>
+                <em>Hold Option (Mac) or Alt (PC) and click another cell in the same row to compare</em>
               </Typography>
             ) : (
               <Typography variant="body2">
@@ -649,7 +649,7 @@ export const ComparisonView: React.FC = () => {
         <Table stickyHeader size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={{ width: '10%' }}>
+              <TableCell sx={{ width: '5%' }}>
                 <TableSortLabel
                   active={orderBy === 'id'}
                   direction={orderBy === 'id' ? order : 'asc'}
@@ -658,7 +658,7 @@ export const ComparisonView: React.FC = () => {
                   ID
                 </TableSortLabel>
               </TableCell>
-              <TableCell sx={{ width: '10%' }}>
+              <TableCell sx={{ width: '8%' }}>
                 <TableSortLabel
                   active={orderBy === 'status'}
                   direction={orderBy === 'status' ? order : 'asc'}
@@ -667,7 +667,7 @@ export const ComparisonView: React.FC = () => {
                   Status
                 </TableSortLabel>
               </TableCell>
-              <TableCell sx={{ width: '20%' }}>
+              <TableCell sx={{ width: '15%' }}>
                 <TableSortLabel
                   active={orderBy === 'source'}
                   direction={orderBy === 'source' ? order : 'asc'}
@@ -679,7 +679,7 @@ export const ComparisonView: React.FC = () => {
               {loadedFiles.map(fileName => {
                 const file = files[fileName];
                 return (
-                  <TableCell key={fileName} sx={{ width: `${50 / loadedFiles.length}%` }}>
+                  <TableCell key={fileName} sx={{ width: `${62 / loadedFiles.length}%` }}>
                     <TableSortLabel
                       active={orderBy === fileName}
                       direction={orderBy === fileName ? order : 'asc'}
@@ -748,7 +748,12 @@ export const ComparisonView: React.FC = () => {
                     backgroundColor: latestMatchesSuspiciousChange ? 'warning.lighter' : 'inherit'
                   }}
                 >
-                  <TableCell sx={{ wordBreak: 'break-word' }}>{result.id}</TableCell>
+                  <TableCell sx={{ 
+                    wordBreak: 'break-word',
+                    fontSize: '0.6rem'
+                  }}>
+                    {result.id}
+                  </TableCell>
                   <TableCell>{getStatusChip(result)}</TableCell>
                   <TableCell sx={{ 
                     wordBreak: 'break-word',
@@ -803,12 +808,12 @@ export const ComparisonView: React.FC = () => {
                         content: target
                       };
                       
-                      if (event.shiftKey && selectedCells.length === 1) {
-                        // Shift-click: add second cell for comparison
+                      if ((event.altKey || event.metaKey) && selectedCells.length === 1) {
+                        // Alt/Option-click: add second cell for comparison
                         if (selectedCells[0].resultId === result.id && selectedCells[0].fileName !== fileName) {
                           setSelectedCells([selectedCells[0], cellData]);
                         }
-                      } else if (!event.shiftKey) {
+                      } else if (!event.altKey && !event.metaKey) {
                         // Regular click: select single cell or clear
                         if (isSelected) {
                           setSelectedCells([]);
@@ -877,12 +882,13 @@ export const ComparisonView: React.FC = () => {
                         value={result.selectedVersion || ''}
                         onChange={(e) => selectVersion(result.id, e.target.value as FileName)}
                         sx={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(3, 1fr)',
+                          display: 'flex',
+                          flexDirection: result.inFiles.length > 3 ? 'column' : 'row',
+                          flexWrap: 'wrap',
                           gap: 0.5,
                           '& .MuiFormControlLabel-root': {
                             margin: 0,
-                            justifyContent: 'center'
+                            minWidth: result.inFiles.length > 3 ? '80px' : 'auto'
                           }
                         }}
                       >
