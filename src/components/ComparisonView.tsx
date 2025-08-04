@@ -52,7 +52,7 @@ export const ComparisonView: React.FC = () => {
   const { comparisonResults, selectVersion, files, rawFiles, suspiciousFiles, toggleSuspicious } = store;
   const [searchTerm, setSearchTerm] = useState('');
   const [searchInput, setSearchInput] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'different' | 'not-identical' | 'latest-matches-suspicious' | FileName>('all');
+  const [filterType, setFilterType] = useState<'all' | 'different' | 'not-identical' | 'latest-matches-suspicious-change' | FileName>('all');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [order, setOrder] = useState<Order>('asc');
@@ -167,8 +167,8 @@ export const ComparisonView: React.FC = () => {
       (filterType === 'not-identical' && (result.isDifferent || result.inFiles.length === 1)) ||
       (filterType.startsWith('file') && result[`${filterType}Only` as keyof ComparisonResult]);
     
-    // Special filter for LATEST matching suspicious files
-    if (filterType === 'latest-matches-suspicious') {
+    // Special filter for LATEST matching changes made in suspicious files
+    if (filterType === 'latest-matches-suspicious-change') {
       // Find the LATEST file
       const latestFile = loadedFiles.find(fileName => {
         const file = files[fileName];
@@ -178,13 +178,47 @@ export const ComparisonView: React.FC = () => {
       if (latestFile) {
         const latestTarget = result[`${latestFile}Target` as keyof ComparisonResult] as string | undefined;
         
-        // Check if LATEST matches any suspicious file
+        // Check if LATEST matches a change that was introduced in a suspicious file
         matchesFilter = false;
         for (const suspiciousFileName of suspiciousFiles) {
           const suspiciousTarget = result[`${suspiciousFileName}Target` as keyof ComparisonResult] as string | undefined;
-          if (latestTarget && suspiciousTarget && latestTarget === suspiciousTarget) {
-            matchesFilter = true;
-            break;
+          
+          // Check if this suspicious file introduced a change
+          const suspiciousIndex = loadedFiles.indexOf(suspiciousFileName);
+          if (suspiciousIndex > 0) {
+            // Get the previous file's translation
+            const prevFileName = loadedFiles[suspiciousIndex - 1];
+            const prevTarget = result[`${prevFileName}Target` as keyof ComparisonResult] as string | undefined;
+            
+            // Check if:
+            // 1. The suspicious file changed the translation from the previous file
+            // 2. LATEST has the same translation as the suspicious file
+            if (prevTarget && suspiciousTarget && 
+                prevTarget !== suspiciousTarget && 
+                latestTarget === suspiciousTarget) {
+              matchesFilter = true;
+              break;
+            }
+          } else if (suspiciousIndex === 0) {
+            // If suspicious file is the first file, check if LATEST matches it and it's different from others
+            if (latestTarget === suspiciousTarget && suspiciousTarget) {
+              // Check if any later file has a different translation
+              let isDifferentFromOthers = false;
+              for (let i = 1; i < loadedFiles.length; i++) {
+                const otherFileName = loadedFiles[i];
+                if (otherFileName !== suspiciousFileName && otherFileName !== latestFile) {
+                  const otherTarget = result[`${otherFileName}Target` as keyof ComparisonResult] as string | undefined;
+                  if (otherTarget && otherTarget !== suspiciousTarget) {
+                    isDifferentFromOthers = true;
+                    break;
+                  }
+                }
+              }
+              if (isDifferentFromOthers) {
+                matchesFilter = true;
+                break;
+              }
+            }
           }
         }
       } else {
@@ -477,7 +511,7 @@ export const ComparisonView: React.FC = () => {
               <MenuItem value="all">All Translations</MenuItem>
               <MenuItem value="different">Different Only</MenuItem>
               <MenuItem value="not-identical">Exclude Identical</MenuItem>
-              <MenuItem value="latest-matches-suspicious">LATEST Matches Suspicious</MenuItem>
+              <MenuItem value="latest-matches-suspicious-change">LATEST Matches Suspicious Change</MenuItem>
               {loadedFiles.map(fileName => {
                 const file = files[fileName];
                 return (
@@ -565,20 +599,30 @@ export const ComparisonView: React.FC = () => {
             {sortedResults
               .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
               .map((result) => {
-                // Check if LATEST matches any suspicious file for this row
+                // Check if LATEST matches a change made in any suspicious file
                 const latestFile = loadedFiles.find(fileName => {
                   const file = files[fileName];
                   return file?.fileIdentifier === 'LATEST';
                 });
                 
-                let latestMatchesSuspicious = false;
+                let latestMatchesSuspiciousChange = false;
                 if (latestFile) {
                   const latestTarget = result[`${latestFile}Target` as keyof ComparisonResult] as string | undefined;
                   for (const suspiciousFileName of suspiciousFiles) {
                     const suspiciousTarget = result[`${suspiciousFileName}Target` as keyof ComparisonResult] as string | undefined;
-                    if (latestTarget && suspiciousTarget && latestTarget === suspiciousTarget) {
-                      latestMatchesSuspicious = true;
-                      break;
+                    const suspiciousIndex = loadedFiles.indexOf(suspiciousFileName);
+                    
+                    if (suspiciousIndex > 0) {
+                      const prevFileName = loadedFiles[suspiciousIndex - 1];
+                      const prevTarget = result[`${prevFileName}Target` as keyof ComparisonResult] as string | undefined;
+                      
+                      // Check if suspicious file changed the translation and LATEST matches it
+                      if (prevTarget && suspiciousTarget && 
+                          prevTarget !== suspiciousTarget && 
+                          latestTarget === suspiciousTarget) {
+                        latestMatchesSuspiciousChange = true;
+                        break;
+                      }
                     }
                   }
                 }
@@ -587,7 +631,7 @@ export const ComparisonView: React.FC = () => {
                 <TableRow 
                   key={result.id}
                   sx={{
-                    backgroundColor: latestMatchesSuspicious ? 'warning.lighter' : 'inherit'
+                    backgroundColor: latestMatchesSuspiciousChange ? 'warning.lighter' : 'inherit'
                   }}
                 >
                   <TableCell>{result.id}</TableCell>
@@ -685,8 +729,8 @@ export const ComparisonView: React.FC = () => {
                     )}
                   </TableCell>
                 </TableRow>
-              );
-            })
+                );
+              })}
           </TableBody>
         </Table>
         <TablePagination
