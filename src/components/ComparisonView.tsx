@@ -661,7 +661,9 @@ export const ComparisonView: React.FC = () => {
                   Status
                 </TableSortLabel>
               </TableCell>
-              <TableCell sx={{ width: '20%' }}>
+              <TableCell sx={{ 
+                width: `calc((100% - 60px - 100px - 150px) / ${loadedFiles.length + 1})`
+              }}>
                 <TableSortLabel
                   active={orderBy === 'source'}
                   direction={orderBy === 'source' ? order : 'asc'}
@@ -674,7 +676,7 @@ export const ComparisonView: React.FC = () => {
                 const file = files[fileName];
                 return (
                   <TableCell key={fileName} sx={{ 
-                    width: `calc((100% - 20% - 60px - 100px - 150px) / ${loadedFiles.length})`
+                    width: `calc((100% - 60px - 100px - 150px) / ${loadedFiles.length + 1})`
                   }}>
                     <TableSortLabel
                       active={orderBy === fileName}
