@@ -35,9 +35,10 @@ import {
   ListItem,
   ListItemButton,
   ListItemIcon,
-  ListItemText
+  ListItemText,
+  Badge
 } from '@mui/material';
-import { Search, Clear, Warning, CompareArrows, ViewColumn, Visibility, VisibilityOff } from '@mui/icons-material';
+import { Search, Clear, Warning, CompareArrows, ViewColumn, Visibility, VisibilityOff, CheckCircle } from '@mui/icons-material';
 import { useComparisonStore } from '../store/useComparisonStore';
 import type { ComparisonResult, FileName } from '../types/xliff';
 
@@ -447,12 +448,14 @@ export const ComparisonView: React.FC = () => {
     totalUnique: comparisonResults.length,
     identical: comparisonResults.filter(r => !r.isDifferent && r.inFiles.length > 1).length,
     different: comparisonResults.filter(r => r.isDifferent).length,
-    fileOnlyCounts: {} as Record<FileName, number>
+    fileOnlyCounts: {} as Record<FileName, number>,
+    selectedCounts: {} as Record<FileName, number>
   };
   
   loadedFiles.forEach(fileName => {
     const onlyKey = `${fileName}Only` as keyof ComparisonResult;
     stats.fileOnlyCounts[fileName] = comparisonResults.filter(r => r[onlyKey]).length;
+    stats.selectedCounts[fileName] = comparisonResults.filter(r => r.selectedVersion === fileName).length;
   });
   
   return (
@@ -541,6 +544,27 @@ export const ComparisonView: React.FC = () => {
               <Typography variant="subtitle2" gutterBottom>
                 Comparison Statistics
               </Typography>
+              {Object.entries(stats.selectedCounts).some(([_, count]) => count > 0) && (
+                <Stack direction="row" spacing={2} flexWrap="wrap" sx={{ mb: 1 }}>
+                  <Typography variant="body2" color="primary.main">
+                    <strong>Selected versions:</strong>
+                  </Typography>
+                  {Object.entries(stats.selectedCounts)
+                    .filter(([_, count]) => count > 0)
+                    .map(([fileName, count]) => {
+                      const file = files[fileName as FileName];
+                      return (
+                        <Chip
+                          key={fileName}
+                          label={`${file?.fileIdentifier || fileName}: ${count}`}
+                          size="small"
+                          color="primary"
+                          icon={<CheckCircle />}
+                        />
+                      );
+                    })}
+                </Stack>
+              )}
               <Stack direction="row" spacing={3} flexWrap="wrap">
                 <Typography variant="body2">
                   <strong>Total unique:</strong> {stats.totalUnique}
@@ -738,17 +762,45 @@ export const ComparisonView: React.FC = () => {
               </TableCell>
               {visibleFiles.map(fileName => {
                 const file = files[fileName];
+                // Count how many strings are selected from this file
+                const selectedCount = sortedResults.filter(r => r.selectedVersion === fileName).length;
+                const hasSelections = selectedCount > 0;
+                
                 return (
                   <TableCell key={fileName} sx={{ 
-                    width: calculateColumnWidth()
+                    width: calculateColumnWidth(),
+                    position: 'relative'
                   }}>
-                    <TableSortLabel
-                      active={orderBy === fileName}
-                      direction={orderBy === fileName ? order : 'asc'}
-                      onClick={() => handleRequestSort(fileName)}
-                    >
-                      {file?.fileIdentifier || fileName}
-                    </TableSortLabel>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <TableSortLabel
+                        active={orderBy === fileName}
+                        direction={orderBy === fileName ? order : 'asc'}
+                        onClick={() => handleRequestSort(fileName)}
+                      >
+                        {file?.fileIdentifier || fileName}
+                      </TableSortLabel>
+                      {hasSelections && (
+                        <Badge 
+                          badgeContent={selectedCount} 
+                          color="primary"
+                          sx={{
+                            '& .MuiBadge-badge': {
+                              fontSize: '0.625rem',
+                              height: '16px',
+                              minWidth: '16px',
+                              fontWeight: 'bold'
+                            }
+                          }}
+                        >
+                          <CheckCircle 
+                            sx={{ 
+                              fontSize: '1rem',
+                              color: 'primary.main'
+                            }}
+                          />
+                        </Badge>
+                      )}
+                    </Stack>
                   </TableCell>
                 );
               })}
@@ -832,8 +884,13 @@ export const ComparisonView: React.FC = () => {
                     let borderColor = 'transparent';
                     let borderWidth = 0;
                     
-                    if (result.selectedVersion === fileName) {
-                      bgColor = 'action.selected';
+                    // Check if this is the selected version
+                    const isSelectedVersion = result.selectedVersion === fileName;
+                    
+                    if (isSelectedVersion) {
+                      bgColor = 'primary.light';
+                      borderColor = 'primary.main';
+                      borderWidth = 3;
                     } else if (pattern === 'changed') {
                       // Where the change was introduced and stays consistent
                       bgColor = 'success.light';
@@ -894,9 +951,9 @@ export const ComparisonView: React.FC = () => {
                         <Box 
                           onClick={handleCellClick}
                           sx={{ 
-                            backgroundColor: isSelected ? 'primary.light' : bgColor,
+                            backgroundColor: isSelected ? 'info.light' : bgColor,
                             border: isSelected ? '2px solid' : borderWidth > 0 ? `${borderWidth}px solid` : 'none',
-                            borderColor: isSelected ? 'primary.main' : borderColor,
+                            borderColor: isSelected ? 'info.main' : borderColor,
                             p: { xs: 0.5, sm: 0.75, md: 1 },
                             borderRadius: 1,
                             position: 'relative',
@@ -904,8 +961,10 @@ export const ComparisonView: React.FC = () => {
                             wordBreak: 'break-word',
                             whiteSpace: 'pre-wrap',
                             cursor: target ? 'pointer' : 'default',
+                            opacity: result.selectedVersion && !isSelectedVersion && !isSelected ? 0.6 : 1,
                             '&:hover': target ? {
-                              backgroundColor: isSelected ? 'primary.light' : 'action.hover'
+                              backgroundColor: isSelected ? 'info.light' : isSelectedVersion ? 'primary.light' : 'action.hover',
+                              opacity: 1
                             } : {}
                           }}>
                           {shouldShowDiff && otherCell && target ? (
@@ -930,7 +989,23 @@ export const ComparisonView: React.FC = () => {
                           ) : (
                             target || '-'
                           )}
-                          {pattern === 'changed' && (
+                          {isSelectedVersion && (
+                            <Chip
+                              label="SELECTED"
+                              color="primary"
+                              size="small"
+                              sx={{
+                                position: 'absolute',
+                                top: -10,
+                                right: -10,
+                                fontSize: '0.625rem',
+                                height: '20px',
+                                fontWeight: 'bold',
+                                zIndex: 1
+                              }}
+                            />
+                          )}
+                          {pattern === 'changed' && !isSelectedVersion && (
                             <Box
                               sx={{
                                 position: 'absolute',
