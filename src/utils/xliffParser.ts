@@ -118,7 +118,10 @@ export const parseXliff = (xmlContent: string): XliffFile => {
           xml += node.textContent || '';
         } else if (node.nodeType === Node.ELEMENT_NODE) {
           const serializer = new XMLSerializer();
-          xml += serializer.serializeToString(node);
+          let serialized = serializer.serializeToString(node);
+          // Remove xmlns attribute that gets added by XMLSerializer
+          serialized = serialized.replace(/ xmlns="[^"]*"/g, '');
+          xml += serialized;
         }
       }
       return xml;
@@ -166,7 +169,12 @@ export const parseXliff = (xmlContent: string): XliffFile => {
 };
 
 export const generateXliff = (xliffFile: XliffFile): string => {
-  const transUnitsXml = xliffFile.transUnits
+  // Filter out trans-units with empty targets to avoid erasing translations
+  const transUnitsWithTargets = xliffFile.transUnits.filter(unit => 
+    unit.target && unit.target.trim() !== ''
+  );
+  
+  const transUnitsXml = transUnitsWithTargets
     .map(unit => {
       const noteXml = unit.note ? `\n        <note>${unit.note}</note>` : '';
       const stateAttr = unit.state ? ` state="${unit.state}"` : '';
