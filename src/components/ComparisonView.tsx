@@ -349,7 +349,7 @@ export const ComparisonView: React.FC = () => {
   });
   
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
       <Stack spacing={{ xs: 1, sm: 2 }} sx={{ mb: 2 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Stack>
@@ -564,7 +564,7 @@ export const ComparisonView: React.FC = () => {
       </Stack>
       
       <TableContainer component={Paper} sx={{ 
-        flex: 1,
+        maxHeight: 'calc(100vh - 200px)',
         overflow: 'auto',
         '& .MuiTable-root': {
           minWidth: '100%'

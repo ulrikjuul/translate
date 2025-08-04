@@ -178,7 +178,7 @@ export const AllStringsView: React.FC = () => {
   const totalStrings = Object.values(fileCounts).reduce((sum, count) => sum + count, 0);
   
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
       <Stack spacing={{ xs: 1, sm: 2 }} sx={{ mb: 2 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Stack>
@@ -271,7 +271,7 @@ export const AllStringsView: React.FC = () => {
       </Stack>
       
       <TableContainer component={Paper} sx={{ 
-        flex: 1,
+        maxHeight: 'calc(100vh - 200px)',
         overflow: 'auto'
       }}>
         <Table size="small" stickyHeader>

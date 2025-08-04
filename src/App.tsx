@@ -35,10 +35,9 @@ function App() {
       <Box sx={{ 
         px: { xs: 1, sm: 2, md: 3 }, 
         py: { xs: 2, sm: 3, md: 4 },
-        height: '100vh',
+        minHeight: '100vh',
         display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden'
+        flexDirection: 'column'
       }}>
         <AutoLoadFiles />
         
@@ -70,16 +69,14 @@ function App() {
           </ToggleButtonGroup>
         </Box>
         
-        <Box sx={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-          {viewMode === 'comparison' ? (
-            <>
-              <ComparisonView />
-              <ExportActions />
-            </>
-          ) : (
-            <AllStringsView />
-          )}
-        </Box>
+        {viewMode === 'comparison' ? (
+          <>
+            <ComparisonView />
+            <ExportActions />
+          </>
+        ) : (
+          <AllStringsView />
+        )}
       </Box>
     </ThemeProvider>
   );
