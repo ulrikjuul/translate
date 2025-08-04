@@ -321,11 +321,29 @@ export const AllStringsView: React.FC = () => {
                   onClick={() => handleShowXml(item)}
                 >
                   <TableCell>{getFileChip(item.fromFile)}</TableCell>
-                  <TableCell>{item.id}</TableCell>
-                  <TableCell>{item.source}</TableCell>
-                  <TableCell>{item.target}</TableCell>
-                  <TableCell>{item.state || '-'}</TableCell>
-                  <TableCell>{item.note || '-'}</TableCell>
+                  <TableCell sx={{ wordBreak: 'break-word' }}>{item.id}</TableCell>
+                  <TableCell sx={{ 
+                    wordBreak: 'break-word',
+                    whiteSpace: 'pre-wrap',
+                    maxWidth: { xs: '200px', sm: '300px', md: '400px' }
+                  }}>
+                    {item.source}
+                  </TableCell>
+                  <TableCell sx={{ 
+                    wordBreak: 'break-word',
+                    whiteSpace: 'pre-wrap',
+                    maxWidth: { xs: '200px', sm: '300px', md: '400px' }
+                  }}>
+                    {item.target}
+                  </TableCell>
+                  <TableCell sx={{ wordBreak: 'break-word' }}>{item.state || '-'}</TableCell>
+                  <TableCell sx={{ 
+                    wordBreak: 'break-word',
+                    whiteSpace: 'pre-wrap',
+                    maxWidth: { xs: '150px', sm: '200px', md: '250px' }
+                  }}>
+                    {item.note || '-'}
+                  </TableCell>
                   <TableCell align="center">
                     <Tooltip title="View full XML">
                       <IconButton 

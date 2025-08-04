@@ -591,10 +591,7 @@ export const ComparisonView: React.FC = () => {
                   Status
                 </TableSortLabel>
               </TableCell>
-              <TableCell sx={{ 
-                minWidth: { xs: 100, sm: 120, md: 150 },
-                maxWidth: { xs: '25%', sm: '20%', md: '20%' }
-              }}>
+              <TableCell>
                 <TableSortLabel
                   active={orderBy === 'source'}
                   direction={orderBy === 'source' ? order : 'asc'}
@@ -606,12 +603,7 @@ export const ComparisonView: React.FC = () => {
               {loadedFiles.map(fileName => {
                 const file = files[fileName];
                 return (
-                  <TableCell key={fileName} sx={{ 
-                    minWidth: { xs: 80, sm: 100, md: 120 },
-                    maxWidth: { xs: '12%', sm: '15%', md: '15%' },
-                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                    padding: { xs: '4px', sm: '6px', md: '8px' }
-                  }}>
+                  <TableCell key={fileName}>
                     <TableSortLabel
                       active={orderBy === fileName}
                       direction={orderBy === fileName ? order : 'asc'}
@@ -679,9 +671,14 @@ export const ComparisonView: React.FC = () => {
                     backgroundColor: latestMatchesSuspiciousChange ? 'warning.lighter' : 'inherit'
                   }}
                 >
-                  <TableCell>{result.id}</TableCell>
+                  <TableCell sx={{ wordBreak: 'break-word' }}>{result.id}</TableCell>
                   <TableCell>{getStatusChip(result)}</TableCell>
-                  <TableCell>{result.source}</TableCell>
+                  <TableCell sx={{ 
+                    wordBreak: 'break-word',
+                    whiteSpace: 'pre-wrap'
+                  }}>
+                    {result.source}
+                  </TableCell>
                   {loadedFiles.map((fileName, fileIndex) => {
                     const targetKey = `${fileName}Target` as keyof ComparisonResult;
                     const target = result[targetKey] as string | undefined;
@@ -721,10 +718,7 @@ export const ComparisonView: React.FC = () => {
                           position: 'relative',
                           fontSize: { xs: '0.75rem', sm: '0.875rem' },
                           wordBreak: 'break-word',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          maxHeight: { xs: '60px', sm: '80px', md: '100px' },
-                          overflowY: 'auto'
+                          whiteSpace: 'pre-wrap'
                         }}>
                           {target || '-'}
                           {pattern === 'changed' && (
