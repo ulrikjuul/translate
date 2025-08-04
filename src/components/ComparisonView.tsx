@@ -640,10 +640,10 @@ export const ComparisonView: React.FC = () => {
       </Stack>
       
       <TableContainer component={Paper}>
-        <Table stickyHeader size="small">
+        <Table stickyHeader size="small" sx={{ tableLayout: 'fixed' }}>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ width: '5%' }}>
+              <TableCell sx={{ width: '60px' }}>
                 <TableSortLabel
                   active={orderBy === 'id'}
                   direction={orderBy === 'id' ? order : 'asc'}
@@ -652,7 +652,7 @@ export const ComparisonView: React.FC = () => {
                   ID
                 </TableSortLabel>
               </TableCell>
-              <TableCell sx={{ width: '8%' }}>
+              <TableCell sx={{ width: '100px' }}>
                 <TableSortLabel
                   active={orderBy === 'status'}
                   direction={orderBy === 'status' ? order : 'asc'}
@@ -661,7 +661,7 @@ export const ComparisonView: React.FC = () => {
                   Status
                 </TableSortLabel>
               </TableCell>
-              <TableCell sx={{ width: '15%' }}>
+              <TableCell sx={{ width: '20%' }}>
                 <TableSortLabel
                   active={orderBy === 'source'}
                   direction={orderBy === 'source' ? order : 'asc'}
@@ -673,7 +673,9 @@ export const ComparisonView: React.FC = () => {
               {loadedFiles.map(fileName => {
                 const file = files[fileName];
                 return (
-                  <TableCell key={fileName} sx={{ width: `${62 / loadedFiles.length}%` }}>
+                  <TableCell key={fileName} sx={{ 
+                    width: `calc((100% - 20% - 60px - 100px - 150px) / ${loadedFiles.length})`
+                  }}>
                     <TableSortLabel
                       active={orderBy === fileName}
                       direction={orderBy === fileName ? order : 'asc'}
@@ -685,8 +687,7 @@ export const ComparisonView: React.FC = () => {
                 );
               })}
               <TableCell align="center" sx={{ 
-                width: '10%',
-                minWidth: { xs: 150, sm: 180, md: 200 },
+                width: '150px',
                 display: { xs: 'none', sm: 'table-cell' }
               }}>Select Version</TableCell>
             </TableRow>
