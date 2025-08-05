@@ -152,16 +152,32 @@ export const useComparisonStore = create<ComparisonStore>((set, get) => ({
   getMergedFile: () => {
     const { files, comparisonResults } = get();
     
-    // Find first loaded file for metadata
-    const firstFile = Object.values(files).find(f => f !== null);
-    if (!firstFile) return null;
-    
-    // Find the LATEST file if it exists
-    const latestFileName = Object.entries(files).find(([_, file]) => 
+    // Prefer LATEST file for base structure and order, otherwise use first loaded file
+    const latestEntry = Object.entries(files).find(([_, file]) => 
       file?.fileIdentifier === 'LATEST'
-    )?.[0] as FileName | undefined;
+    );
     
-    const mergedTransUnits = comparisonResults.map(result => {
+    const baseFile = latestEntry ? latestEntry[1] : Object.values(files).find(f => f !== null);
+    if (!baseFile) return null;
+    
+    const latestFileName = latestEntry ? latestEntry[0] as FileName : undefined;
+    
+    // Map to store comparison results by source for quick lookup
+    const resultsBySource = new Map<string, ComparisonResult>();
+    comparisonResults.forEach(result => {
+      resultsBySource.set(result.source, result);
+    });
+    
+    // Build merged trans-units maintaining the order from base file
+    const mergedTransUnits = baseFile.transUnits.map(baseUnit => {
+      const sourceText = baseUnit.sourceText || baseUnit.source;
+      const result = resultsBySource.get(sourceText);
+      
+      if (!result) {
+        // Unit exists only in base file, keep it as is
+        return { ...baseUnit };
+      }
+      
       let versionToUse = result.selectedVersion;
       
       if (!versionToUse) {
@@ -174,52 +190,34 @@ export const useComparisonStore = create<ComparisonStore>((set, get) => ({
         }
       }
       
-      const selectedFile = files[versionToUse];
-      // Match based on plain text version for comparison
-      const unit = selectedFile?.transUnits.find(u => (u.sourceText || u.source) === result.source);
+      // If we're using the same file as base, just return the unit
+      if (latestEntry && versionToUse === latestFileName) {
+        return { ...baseUnit };
+      }
       
-      if (!unit) {
-        // Fallback: Need to find the original unit with XML tags preserved
-        // First, find a unit from any file to get the source with XML tags
-        let sourceWithTags = result.source;
-        
-        for (const fileName of result.inFiles) {
-          const file = files[fileName];
-          const originalUnit = file?.transUnits.find(u => (u.sourceText || u.source) === result.source);
-          if (originalUnit) {
-            sourceWithTags = originalUnit.source; // Get source with XML tags preserved
-            break;
-          }
-        }
-        
-        // Now get the target from the selected version
-        const targetFile = files[versionToUse];
-        const targetUnit = targetFile?.transUnits.find(u => (u.sourceText || u.source) === result.source);
-        
-        if (targetUnit) {
-          return {
-            id: result.id,
-            source: sourceWithTags, // Use source with XML tags
-            target: targetUnit.target, // Use target with XML tags from selected version
-            sourceText: result.source,
-            targetText: targetUnit.targetText || targetUnit.target
-          };
-        }
-        
-        // Last resort fallback - plain text only
-        const targetKey = `${versionToUse}Target` as keyof ComparisonResult;
+      // Get the unit from selected version
+      const selectedFile = files[versionToUse];
+      const selectedUnit = selectedFile?.transUnits.find(u => 
+        (u.sourceText || u.source) === sourceText
+      );
+      
+      if (selectedUnit) {
+        // Use base unit structure but with target from selected version
         return {
-          id: result.id,
-          source: sourceWithTags,
-          target: (result[targetKey] as string) || ''
+          ...baseUnit,
+          target: selectedUnit.target,
+          targetText: selectedUnit.targetText,
+          state: selectedUnit.state,
+          approved: selectedUnit.approved
         };
       }
       
-      return { ...unit };
+      // Fallback: use base unit
+      return { ...baseUnit };
     });
     
     return {
-      ...firstFile,
+      ...baseFile,
       transUnits: mergedTransUnits
     };
   },

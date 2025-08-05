@@ -3,6 +3,7 @@ import { Box, Button, Stack, Alert, Snackbar, Typography } from '@mui/material';
 import { Download, RestartAlt, Info } from '@mui/icons-material';
 import { useComparisonStore } from '../store/useComparisonStore';
 import { generateXliff } from '../utils/xliffParser';
+import { RegressionChecker } from './RegressionChecker';
 
 export const ExportActions: React.FC = () => {
   const { getMergedFile, reset, comparisonResults, files } = useComparisonStore();
@@ -98,6 +99,7 @@ export const ExportActions: React.FC = () => {
         >
           Export Merged XLIFF
         </Button>
+        <RegressionChecker />
         <Button
           variant="outlined"
           color="secondary"
