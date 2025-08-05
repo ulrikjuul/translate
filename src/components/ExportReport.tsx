@@ -65,6 +65,8 @@ interface ReportData {
     skippedEmpty: number;
     selectedVersions: number;
     defaultVersions: number;
+    latestUnitsInComparison: number;
+    latestUnitsNotInComparison: number;
   };
 }
 
@@ -188,17 +190,20 @@ export const ExportReport: React.FC<ExportReportProps> = ({ open, onClose, expor
       }
 
       // Check 2: Unit count
+      const difference = latestStats.nonEmptyUnits - mergedStats.totalUnits;
+      
       if (mergedStats.totalUnits === latestStats.nonEmptyUnits) {
         regressionChecks.push({
           status: 'pass',
-          message: 'Correct number of trans-units exported',
+          message: 'All non-empty trans-units exported',
           details: `${mergedStats.totalUnits} units (${latestStats.emptyUnits} empty skipped)`
         });
       } else if (mergedStats.totalUnits < latestStats.nonEmptyUnits) {
+        // This can happen if some units couldn't be matched or were excluded
         regressionChecks.push({
           status: 'warning',
-          message: 'Fewer trans-units than expected',
-          details: `Expected: ${latestStats.nonEmptyUnits}, Got: ${mergedStats.totalUnits}`
+          message: `${difference} trans-units missing from export`,
+          details: `LATEST has ${latestStats.nonEmptyUnits} non-empty, exported ${mergedStats.totalUnits}. This may occur if source strings couldn't be matched across files.`
         });
       } else {
         regressionChecks.push({
@@ -256,14 +261,22 @@ export const ExportReport: React.FC<ExportReportProps> = ({ open, onClose, expor
         });
       }
 
-      // Export info
+      // Calculate detailed export info
       const selectedCount = comparisonResults.filter(r => r.selectedVersion).length;
+      
+      // Check how many LATEST units were in comparison
+      const latestUnitsInComparison = comparisonResults.filter(r => 
+        r.inFiles.includes(latestFileName as FileName)
+      ).length;
+      
       const exportInfo = {
         skippedEmpty: latestStats.emptyUnits,
         selectedVersions: selectedCount,
         defaultVersions: comparisonResults.filter(r => 
           !r.selectedVersion && r.inFiles.length > 0
-        ).length
+        ).length,
+        latestUnitsInComparison,
+        latestUnitsNotInComparison: latestStats.totalUnits - latestUnitsInComparison
       };
 
       setReportData({
@@ -448,16 +461,54 @@ EXPORT SUMMARY:
                     <TableRow>
                       <TableCell>Total Trans-units</TableCell>
                       <TableCell>{reportData.latestStats.totalUnits}</TableCell>
-                      <TableCell>{reportData.mergedStats.totalUnits}</TableCell>
-                      <TableCell>
-                        <Tooltip title={`${reportData.latestStats.emptyUnits} empty targets excluded`}>
+                      <TableCell rowSpan={3} sx={{ verticalAlign: 'middle' }}>
+                        {reportData.mergedStats.totalUnits}
+                      </TableCell>
+                      <TableCell rowSpan={3} sx={{ verticalAlign: 'middle' }}>
+                        <Tooltip title="See breakdown below">
                           <Info color="info" fontSize="small" />
                         </Tooltip>
                       </TableCell>
                     </TableRow>
+                    <TableRow>
+                      <TableCell sx={{ pl: 4 }}>- With translations</TableCell>
+                      <TableCell>{reportData.latestStats.nonEmptyUnits}</TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell sx={{ pl: 4 }}>- Empty (skipped)</TableCell>
+                      <TableCell>{reportData.latestStats.emptyUnits}</TableCell>
+                    </TableRow>
                   </TableBody>
                 </Table>
               </TableContainer>
+              
+              {reportData.latestStats.nonEmptyUnits !== reportData.mergedStats.totalUnits && (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  <Typography variant="body2">
+                    <strong>Why the difference?</strong>
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    LATEST has {reportData.latestStats.nonEmptyUnits} trans-units with translations, 
+                    but only {reportData.mergedStats.totalUnits} were exported.
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    <strong>Comparison analysis:</strong>
+                  </Typography>
+                  <Box component="ul" sx={{ mt: 0.5, mb: 0 }}>
+                    <li>{reportData.exportInfo.latestUnitsInComparison} LATEST units were compared with other files</li>
+                    <li>{reportData.exportInfo.latestUnitsNotInComparison} LATEST units were NOT in the comparison (only exist in LATEST)</li>
+                    <li>{reportData.latestStats.emptyUnits} units had empty targets and were skipped</li>
+                  </Box>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    <strong>Possible reasons:</strong>
+                  </Typography>
+                  <Box component="ul" sx={{ mt: 0.5, mb: 0 }}>
+                    <li>Source strings may differ slightly between files (XML tags, whitespace)</li>
+                    <li>Some trans-units only exist in LATEST and weren't loaded in other files</li>
+                    <li>The comparison uses plain text matching which may miss units with different XML structure</li>
+                  </Box>
+                </Alert>
+              )}
             </Box>
 
             {/* Changes by Source */}
