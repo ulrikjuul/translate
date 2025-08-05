@@ -4,16 +4,21 @@ import { Download, RestartAlt, Info } from '@mui/icons-material';
 import { useComparisonStore } from '../store/useComparisonStore';
 import { generateXliff } from '../utils/xliffParser';
 import { RegressionChecker } from './RegressionChecker';
+import { ExportReport } from './ExportReport';
 
 export const ExportActions: React.FC = () => {
   const { getMergedFile, reset, comparisonResults, files } = useComparisonStore();
   const [showSuccess, setShowSuccess] = React.useState(false);
+  const [showReport, setShowReport] = React.useState(false);
+  const [exportedContent, setExportedContent] = React.useState('');
   
   const handleExport = () => {
     const mergedFile = getMergedFile();
     if (!mergedFile) return;
     
     const xliffContent = generateXliff(mergedFile);
+    setExportedContent(xliffContent);
+    
     const blob = new Blob([xliffContent], { type: 'text/xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     
@@ -29,6 +34,9 @@ export const ExportActions: React.FC = () => {
     
     URL.revokeObjectURL(url);
     setShowSuccess(true);
+    
+    // Show report after export
+    setShowReport(true);
   };
   
   const handleReset = () => {
@@ -116,6 +124,12 @@ export const ExportActions: React.FC = () => {
         autoHideDuration={3000}
         onClose={() => setShowSuccess(false)}
         message="XLIFF file exported successfully!"
+      />
+      
+      <ExportReport
+        open={showReport}
+        onClose={() => setShowReport(false)}
+        exportedContent={exportedContent}
       />
     </Box>
   );
