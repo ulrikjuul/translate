@@ -24,7 +24,10 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Snackbar
+  Snackbar,
+  Slider,
+  FormControl,
+  FormLabel
 } from '@mui/material';
 import {
   Upload,
@@ -66,6 +69,8 @@ export const SemanticAnalysis: React.FC = () => {
   const [flaggedInput, setFlaggedInput] = useState<string>('');
   const [showResults, setShowResults] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '' });
+  const [poorThreshold, setPoorThreshold] = useState(60);
+  const [showFullList, setShowFullList] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -222,8 +227,14 @@ export const SemanticAnalysis: React.FC = () => {
 
   const getScoreColor = (score: number) => {
     if (score >= 80) return 'success';
-    if (score >= 60) return 'warning';
+    if (score >= poorThreshold) return 'warning';
     return 'error';
+  };
+
+  const getQualityCategory = (score: number): 'good' | 'acceptable' | 'poor' => {
+    if (score >= 80) return 'good';
+    if (score >= poorThreshold) return 'acceptable';
+    return 'poor';
   };
 
   const exportFlaggedXLIFF = () => {
@@ -272,6 +283,68 @@ GOOD QUALITY TRANSLATIONS: ${goodUnits.length} units with scores 80+
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  };
+
+  const exportAnnotatedXLIFF = () => {
+    try {
+      // Create a map of scores by ID
+      const scoreMap = new Map<string, FlaggedUnit>();
+      flaggedUnits.forEach(unit => {
+        scoreMap.set(unit.id, unit);
+      });
+
+      // Parse the original XLIFF
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(xliffContent, 'text/xml');
+      
+      // Add quality annotations to trans-units
+      const transUnits = doc.getElementsByTagName('trans-unit');
+      for (let i = 0; i < transUnits.length; i++) {
+        const unit = transUnits[i];
+        const id = unit.getAttribute('id');
+        
+        if (id && scoreMap.has(id)) {
+          const scoreData = scoreMap.get(id)!;
+          const qualityCategory = getQualityCategory(scoreData.semanticScore);
+          
+          // Add attributes for quality data
+          unit.setAttribute('semantic-score', scoreData.semanticScore.toString());
+          unit.setAttribute('quality-category', qualityCategory);
+          
+          // Add note element with analysis
+          const noteElement = doc.createElement('note');
+          noteElement.setAttribute('from', 'semantic-analysis');
+          noteElement.textContent = `Score: ${scoreData.semanticScore}/100. ${scoreData.analysisNotes}`;
+          
+          // Insert note after target element
+          const targetElement = unit.getElementsByTagName('target')[0];
+          if (targetElement && targetElement.nextSibling) {
+            unit.insertBefore(noteElement, targetElement.nextSibling);
+          } else {
+            unit.appendChild(noteElement);
+          }
+        }
+      }
+      
+      // Serialize back to string
+      const serializer = new XMLSerializer();
+      const annotatedXML = serializer.serializeToString(doc);
+      
+      // Download the annotated file
+      const blob = new Blob([annotatedXML], { type: 'text/xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${fileName.replace('.xliff', '')}_annotated.xliff`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      setSnackbar({ open: true, message: 'Annotated XLIFF exported successfully!' });
+    } catch (error) {
+      setSnackbar({ open: true, message: 'Error exporting annotated XLIFF' });
+    }
   };
 
   return (
@@ -416,31 +489,72 @@ GOOD QUALITY TRANSLATIONS: ${goodUnits.length} units with scores 80+
               </Typography>
             </Alert>
             
+            <FormControl sx={{ mb: 3, width: '100%' }}>
+              <FormLabel>
+                Poor Quality Threshold: {poorThreshold}
+                <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
+                  (Scores below {poorThreshold} are marked as poor quality)
+                </Typography>
+              </FormLabel>
+              <Slider
+                value={poorThreshold}
+                onChange={(e, value) => setPoorThreshold(value as number)}
+                min={30}
+                max={80}
+                step={5}
+                marks={[
+                  { value: 30, label: '30' },
+                  { value: 50, label: '50' },
+                  { value: 60, label: '60' },
+                  { value: 70, label: '70' },
+                  { value: 80, label: '80' }
+                ]}
+                valueLabelDisplay="auto"
+                color="warning"
+              />
+            </FormControl>
+            
             <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
               <Chip
-                label={`Poor: ${flaggedUnits.filter(u => u.qualityCategory === 'poor').length}`}
+                label={`Poor (< ${poorThreshold}): ${flaggedUnits.filter(u => getQualityCategory(u.semanticScore) === 'poor').length}`}
                 color="error"
                 size="small"
               />
               <Chip
-                label={`Acceptable: ${flaggedUnits.filter(u => u.qualityCategory === 'acceptable').length}`}
+                label={`Acceptable (${poorThreshold}-79): ${flaggedUnits.filter(u => getQualityCategory(u.semanticScore) === 'acceptable').length}`}
                 color="warning"
                 size="small"
               />
               <Chip
-                label={`Good: ${flaggedUnits.filter(u => u.qualityCategory === 'good').length}`}
+                label={`Good (80+): ${flaggedUnits.filter(u => getQualityCategory(u.semanticScore) === 'good').length}`}
                 color="success"
                 size="small"
               />
             </Stack>
             
+            <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+              <Button
+                variant="contained"
+                startIcon={<Download />}
+                onClick={exportFlaggedXLIFF}
+              >
+                Export Analysis Report
+              </Button>
+              <Button
+                variant="contained"
+                color="secondary"
+                startIcon={<Download />}
+                onClick={exportAnnotatedXLIFF}
+              >
+                Export Full XLIFF with Annotations
+              </Button>
+            </Stack>
+            
             <Button
-              variant="contained"
-              startIcon={<Download />}
-              onClick={exportFlaggedXLIFF}
-              sx={{ mb: 2 }}
+              variant="outlined"
+              onClick={() => setShowFullList(true)}
             >
-              Export Analysis Report
+              View All Strings with Quality Scores
             </Button>
           </StepContent>
         </Step>
@@ -519,6 +633,110 @@ GOOD QUALITY TRANSLATIONS: ${goodUnits.length} units with scores 80+
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         message={snackbar.message}
       />
+
+      {/* Full List Dialog */}
+      <Dialog 
+        open={showFullList} 
+        onClose={() => setShowFullList(false)}
+        maxWidth="xl"
+        fullWidth
+      >
+        <DialogTitle>
+          All Strings with Quality Scores
+          <Typography variant="body2" color="text.secondary">
+            Total: {analysisData.length} strings | Analyzed: {flaggedUnits.length} strings
+          </Typography>
+        </DialogTitle>
+        <DialogContent dividers>
+          <TableContainer component={Paper} sx={{ maxHeight: 600 }}>
+            <Table stickyHeader size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Line#</TableCell>
+                  <TableCell>ID</TableCell>
+                  <TableCell>Score</TableCell>
+                  <TableCell>Quality</TableCell>
+                  <TableCell>Source</TableCell>
+                  <TableCell>Target</TableCell>
+                  <TableCell>Analysis</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {analysisData.map((item) => {
+                  const flaggedUnit = flaggedUnits.find(f => f.id === item.id);
+                  const hasScore = !!flaggedUnit;
+                  const qualityCategory = hasScore ? getQualityCategory(flaggedUnit.semanticScore) : null;
+                  
+                  return (
+                    <TableRow 
+                      key={item.lineNumber}
+                      sx={{ 
+                        backgroundColor: hasScore && qualityCategory === 'poor' ? 'error.lighter' : 
+                                       hasScore && qualityCategory === 'acceptable' ? 'warning.lighter' : 
+                                       hasScore ? 'success.lighter' : 'inherit',
+                        opacity: hasScore ? 1 : 0.6
+                      }}
+                    >
+                      <TableCell>{item.lineNumber}</TableCell>
+                      <TableCell sx={{ fontSize: '0.75rem' }}>{item.id}</TableCell>
+                      <TableCell>
+                        {hasScore ? (
+                          <Chip
+                            label={flaggedUnit.semanticScore}
+                            color={getScoreColor(flaggedUnit.semanticScore)}
+                            size="small"
+                            variant="outlined"
+                          />
+                        ) : (
+                          <Typography variant="caption" color="text.disabled">N/A</Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {hasScore && qualityCategory ? (
+                          <Chip
+                            label={qualityCategory.toUpperCase()}
+                            color={getQualityColor(qualityCategory)}
+                            size="small"
+                          />
+                        ) : (
+                          <Typography variant="caption" color="text.disabled">Not analyzed</Typography>
+                        )}
+                      </TableCell>
+                      <TableCell sx={{ maxWidth: 250, fontSize: '0.75rem' }}>
+                        <Tooltip title={item.sourceText}>
+                          <Typography variant="body2" noWrap>
+                            {item.sourceText}
+                          </Typography>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell sx={{ maxWidth: 250, fontSize: '0.75rem' }}>
+                        <Tooltip title={item.targetText}>
+                          <Typography variant="body2" noWrap>
+                            {item.targetText}
+                          </Typography>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell sx={{ maxWidth: 300, fontSize: '0.75rem' }}>
+                        {hasScore ? flaggedUnit.analysisNotes : '-'}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowFullList(false)}>Close</Button>
+          <Button 
+            variant="contained" 
+            onClick={exportAnnotatedXLIFF}
+            startIcon={<Download />}
+          >
+            Export Full XLIFF with Annotations
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };
