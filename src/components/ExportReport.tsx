@@ -20,7 +20,11 @@ import {
   Paper,
   LinearProgress,
   IconButton,
-  Tooltip
+  Tooltip,
+  Collapse,
+  List,
+  ListItem,
+  ListItemText
 } from '@mui/material';
 import { 
   CheckCircle, 
@@ -29,11 +33,20 @@ import {
   Info, 
   ContentCopy,
   Download,
-  Assessment
+  Assessment,
+  ExpandMore,
+  ExpandLess
 } from '@mui/icons-material';
 import { useComparisonStore } from '../store/useComparisonStore';
 import { generateXliff, parseXliff } from '../utils/xliffParser';
 import type { FileName } from '../types/xliff';
+
+interface MissingUnit {
+  id: string;
+  source: string;
+  target: string;
+  reason: 'not-in-comparison' | 'empty-target' | 'no-match';
+}
 
 interface ReportData {
   timestamp: string;
@@ -68,6 +81,7 @@ interface ReportData {
     latestUnitsInComparison: number;
     latestUnitsNotInComparison: number;
   };
+  missingUnits: MissingUnit[];
 }
 
 interface ExportReportProps {
@@ -80,6 +94,7 @@ export const ExportReport: React.FC<ExportReportProps> = ({ open, onClose, expor
   const { files, comparisonResults, getMergedFile } = useComparisonStore();
   const [reportData, setReportData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showMissingUnits, setShowMissingUnits] = useState(false);
 
   useEffect(() => {
     if (open && exportedContent) {
@@ -269,6 +284,38 @@ export const ExportReport: React.FC<ExportReportProps> = ({ open, onClose, expor
         r.inFiles.includes(latestFileName as FileName)
       ).length;
       
+      // Find missing units
+      const missingUnits: MissingUnit[] = [];
+      const exportedIds = new Set(exportedParsed.transUnits.map(u => u.id));
+      const exportedSources = new Set(exportedParsed.transUnits.map(u => u.source));
+      
+      // Check each LATEST unit to see if it's missing
+      latestFile.transUnits.forEach(unit => {
+        if (!exportedIds.has(unit.id) && !exportedSources.has(unit.source)) {
+          let reason: MissingUnit['reason'] = 'no-match';
+          
+          if (!unit.target || unit.target.trim() === '') {
+            reason = 'empty-target';
+          } else {
+            // Check if it was in comparison
+            const inComparison = comparisonResults.some(r => 
+              r.source === (unit.sourceText || unit.source) ||
+              r.id === unit.id
+            );
+            if (!inComparison) {
+              reason = 'not-in-comparison';
+            }
+          }
+          
+          missingUnits.push({
+            id: unit.id,
+            source: unit.source.substring(0, 100) + (unit.source.length > 100 ? '...' : ''),
+            target: unit.target.substring(0, 100) + (unit.target.length > 100 ? '...' : ''),
+            reason
+          });
+        }
+      });
+      
       const exportInfo = {
         skippedEmpty: latestStats.emptyUnits,
         selectedVersions: selectedCount,
@@ -285,7 +332,8 @@ export const ExportReport: React.FC<ExportReportProps> = ({ open, onClose, expor
         mergedStats,
         changes,
         regressionChecks,
-        exportInfo
+        exportInfo,
+        missingUnits
       });
     } catch (error) {
       console.error('Error generating report:', error);
@@ -326,6 +374,13 @@ EXPORT SUMMARY:
 - Skipped empty targets: ${reportData.exportInfo.skippedEmpty}
 - User selections: ${reportData.exportInfo.selectedVersions}
 - Default selections: ${reportData.exportInfo.defaultVersions}
+
+MISSING TRANS-UNITS: ${reportData.missingUnits.length}
+${reportData.missingUnits.length > 0 ? `
+- Empty targets (skipped): ${reportData.missingUnits.filter(u => u.reason === 'empty-target').length}
+- Not found in other files: ${reportData.missingUnits.filter(u => u.reason === 'not-in-comparison').length}
+- Could not match source: ${reportData.missingUnits.filter(u => u.reason === 'no-match').length}
+` : ''}
 `;
 
     navigator.clipboard.writeText(reportText);
@@ -508,6 +563,93 @@ EXPORT SUMMARY:
                     <li>The comparison uses plain text matching which may miss units with different XML structure</li>
                   </Box>
                 </Alert>
+              )}
+              
+              {/* Missing Units Section */}
+              {reportData.missingUnits.length > 0 && (
+                <Box sx={{ mt: 2 }}>
+                  <Button
+                    startIcon={showMissingUnits ? <ExpandLess /> : <ExpandMore />}
+                    onClick={() => setShowMissingUnits(!showMissingUnits)}
+                    size="small"
+                    variant="outlined"
+                  >
+                    View {reportData.missingUnits.length} Missing Trans-units
+                  </Button>
+                  
+                  <Collapse in={showMissingUnits}>
+                    <Box sx={{ mt: 2, maxHeight: 400, overflow: 'auto' }}>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        Trans-units from LATEST that were not included in the export:
+                      </Typography>
+                      
+                      {/* Group by reason */}
+                      {['empty-target', 'not-in-comparison', 'no-match'].map(reasonType => {
+                        const unitsWithReason = reportData.missingUnits.filter(u => u.reason === reasonType);
+                        if (unitsWithReason.length === 0) return null;
+                        
+                        const reasonLabel = {
+                          'empty-target': 'Empty Target (Intentionally Skipped)',
+                          'not-in-comparison': 'Not Found in Other Files',
+                          'no-match': 'Could Not Match Source'
+                        }[reasonType];
+                        
+                        const reasonColor = {
+                          'empty-target': 'info',
+                          'not-in-comparison': 'warning',
+                          'no-match': 'error'
+                        }[reasonType] as 'info' | 'warning' | 'error';
+                        
+                        return (
+                          <Box key={reasonType} sx={{ mb: 2 }}>
+                            <Chip 
+                              label={`${reasonLabel}: ${unitsWithReason.length} units`}
+                              color={reasonColor}
+                              size="small"
+                              sx={{ mb: 1 }}
+                            />
+                            <List dense>
+                              {unitsWithReason.slice(0, 10).map((unit, index) => (
+                                <ListItem key={index} sx={{ pl: 2 }}>
+                                  <ListItemText
+                                    primary={
+                                      <Typography variant="caption" component="span">
+                                        <strong>ID:</strong> {unit.id}
+                                      </Typography>
+                                    }
+                                    secondary={
+                                      <>
+                                        <Typography variant="caption" component="div" sx={{ mt: 0.5 }}>
+                                          <strong>Source:</strong> {unit.source}
+                                        </Typography>
+                                        {unit.target && (
+                                          <Typography variant="caption" component="div" sx={{ mt: 0.5 }}>
+                                            <strong>Target:</strong> {unit.target}
+                                          </Typography>
+                                        )}
+                                      </>
+                                    }
+                                  />
+                                </ListItem>
+                              ))}
+                              {unitsWithReason.length > 10 && (
+                                <ListItem sx={{ pl: 2 }}>
+                                  <ListItemText
+                                    primary={
+                                      <Typography variant="caption" color="text.secondary">
+                                        ... and {unitsWithReason.length - 10} more
+                                      </Typography>
+                                    }
+                                  />
+                                </ListItem>
+                              )}
+                            </List>
+                          </Box>
+                        );
+                      })}
+                    </Box>
+                  </Collapse>
+                </Box>
               )}
             </Box>
 
