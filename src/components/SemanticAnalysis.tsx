@@ -50,8 +50,11 @@ interface AnalysisData {
 interface FlaggedUnit {
   lineNumber: number;
   id: string;
-  riskLevel: 'high' | 'medium' | 'low';
-  reason: string;
+  source: string;
+  target: string;
+  semanticScore: number;
+  qualityCategory: 'good' | 'acceptable' | 'poor';
+  analysisNotes: string;
 }
 
 export const SemanticAnalysis: React.FC = () => {
@@ -152,116 +155,112 @@ export const SemanticAnalysis: React.FC = () => {
   const importFlaggedResults = () => {
     try {
       // Parse the input - expecting format like:
-      // Line#,Risk,Reason
-      // 5,high,Translation refers to different concept
-      // 12,medium,Possible terminology mismatch
+      // Line#,ID,Source,Target,Semantic_Score,Quality_Category,Analysis_Notes
       
       const lines = flaggedInput.trim().split('\n');
       const flagged: FlaggedUnit[] = [];
+      let isHeaderSkipped = false;
       
-      lines.forEach(line => {
-        // Try different delimiters
-        let parts = line.split('\t');
-        if (parts.length < 3) {
-          parts = line.split(',');
+      lines.forEach((line, index) => {
+        // Skip empty lines
+        if (!line.trim()) return;
+        
+        // Skip header if it contains "Line#" or "Semantic_Score"
+        if (!isHeaderSkipped && (line.includes('Line#') || line.includes('Semantic_Score'))) {
+          isHeaderSkipped = true;
+          return;
         }
         
-        if (parts.length >= 3) {
-          const lineNum = parseInt(parts[0].trim());
-          const risk = parts[1].trim().toLowerCase() as 'high' | 'medium' | 'low';
-          const reason = parts.slice(2).join(',').trim();
+        // Parse CSV line (handle commas in quoted fields)
+        const parts = line.match(/(".*?"|[^,]+)(?=\s*,|\s*$)/g) || [];
+        
+        if (parts.length >= 7) {
+          const lineNum = parseInt(parts[0].replace(/"/g, '').trim());
+          const id = parts[1].replace(/"/g, '').trim();
+          const source = parts[2].replace(/"/g, '').trim();
+          const target = parts[3].replace(/"/g, '').trim();
+          const score = parseInt(parts[4].replace(/"/g, '').trim());
+          const category = parts[5].replace(/"/g, '').trim().toLowerCase() as 'good' | 'acceptable' | 'poor';
+          const notes = parts[6].replace(/"/g, '').trim();
           
-          if (!isNaN(lineNum) && ['high', 'medium', 'low'].includes(risk)) {
-            const analysisItem = analysisData.find(a => a.lineNumber === lineNum);
-            if (analysisItem) {
-              flagged.push({
-                lineNumber: lineNum,
-                id: analysisItem.id,
-                riskLevel: risk,
-                reason
-              });
-            }
+          if (!isNaN(lineNum) && !isNaN(score) && ['good', 'acceptable', 'poor'].includes(category)) {
+            flagged.push({
+              lineNumber: lineNum,
+              id,
+              source,
+              target,
+              semanticScore: score,
+              qualityCategory: category,
+              analysisNotes: notes
+            });
           }
         }
       });
       
       if (flagged.length > 0) {
+        // Sort by score (lowest first) to show worst matches at top
+        flagged.sort((a, b) => a.semanticScore - b.semanticScore);
         setFlaggedUnits(flagged);
         setActiveStep(3);
         setShowResults(true);
-        setSnackbar({ open: true, message: `Imported ${flagged.length} flagged translations` });
+        setSnackbar({ open: true, message: `Imported ${flagged.length} analyzed translations` });
       } else {
-        setSnackbar({ open: true, message: 'No valid flagged units found. Check format: Line#, Risk Level, Reason' });
+        setSnackbar({ open: true, message: 'No valid results found. Check format matches: Line#,ID,Source,Target,Semantic_Score,Quality_Category,Analysis_Notes' });
       }
     } catch (error) {
-      setSnackbar({ open: true, message: 'Error parsing flagged results' });
+      setSnackbar({ open: true, message: 'Error parsing results. Make sure format matches expected structure.' });
     }
   };
 
-  const getRiskColor = (risk: 'high' | 'medium' | 'low') => {
+  const getQualityColor = (category: 'good' | 'acceptable' | 'poor') => {
     return {
-      high: 'error',
-      medium: 'warning',
-      low: 'info'
-    }[risk] as 'error' | 'warning' | 'info';
+      good: 'success',
+      acceptable: 'warning',
+      poor: 'error'
+    }[category] as 'success' | 'warning' | 'error';
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score >= 80) return 'success';
+    if (score >= 60) return 'warning';
+    return 'error';
   };
 
   const exportFlaggedXLIFF = () => {
-    // Create a report of flagged units
-    const report = flaggedUnits.map(unit => {
-      const data = analysisData.find(a => a.lineNumber === unit.lineNumber);
-      return {
-        id: unit.id,
-        risk: unit.riskLevel,
-        reason: unit.reason,
-        source: data?.sourceText || '',
-        target: data?.targetText || ''
-      };
-    });
+    const poorUnits = flaggedUnits.filter(u => u.qualityCategory === 'poor');
+    const acceptableUnits = flaggedUnits.filter(u => u.qualityCategory === 'acceptable');
+    const goodUnits = flaggedUnits.filter(u => u.qualityCategory === 'good');
     
     const reportText = `SEMANTIC ANALYSIS REPORT
 Generated: ${new Date().toLocaleString()}
 File: ${fileName}
-Total Flagged: ${flaggedUnits.length}
+Total Analyzed: ${flaggedUnits.length}
 
-HIGH RISK (${flaggedUnits.filter(u => u.riskLevel === 'high').length}):
-${flaggedUnits
-  .filter(u => u.riskLevel === 'high')
-  .map(u => {
-    const data = analysisData.find(a => a.lineNumber === u.lineNumber);
-    return `
-ID: ${u.id}
-Reason: ${u.reason}
-Source: ${data?.sourceText || ''}
-Target: ${data?.targetText || ''}
----`;
-  }).join('\n')}
+SUMMARY:
+- Poor Quality (Score < 60): ${poorUnits.length}
+- Acceptable Quality (Score 60-79): ${acceptableUnits.length}
+- Good Quality (Score 80+): ${goodUnits.length}
 
-MEDIUM RISK (${flaggedUnits.filter(u => u.riskLevel === 'medium').length}):
-${flaggedUnits
-  .filter(u => u.riskLevel === 'medium')
-  .map(u => {
-    const data = analysisData.find(a => a.lineNumber === u.lineNumber);
-    return `
+POOR QUALITY TRANSLATIONS (${poorUnits.length}):
+${poorUnits.map(u => `
 ID: ${u.id}
-Reason: ${u.reason}
-Source: ${data?.sourceText || ''}
-Target: ${data?.targetText || ''}
----`;
-  }).join('\n')}
+Semantic Score: ${u.semanticScore}/100
+Analysis: ${u.analysisNotes}
+Source: ${u.source}
+Target: ${u.target}
+---`).join('\n')}
 
-LOW RISK (${flaggedUnits.filter(u => u.riskLevel === 'low').length}):
-${flaggedUnits
-  .filter(u => u.riskLevel === 'low')
-  .map(u => {
-    const data = analysisData.find(a => a.lineNumber === u.lineNumber);
-    return `
+ACCEPTABLE QUALITY TRANSLATIONS (${acceptableUnits.length}):
+${acceptableUnits.slice(0, 10).map(u => `
 ID: ${u.id}
-Reason: ${u.reason}
-Source: ${data?.sourceText || ''}
-Target: ${data?.targetText || ''}
----`;
-  }).join('\n')}
+Semantic Score: ${u.semanticScore}/100
+Analysis: ${u.analysisNotes}
+Source: ${u.source}
+Target: ${u.target}
+---`).join('\n')}
+${acceptableUnits.length > 10 ? `\n... and ${acceptableUnits.length - 10} more acceptable quality translations` : ''}
+
+GOOD QUALITY TRANSLATIONS: ${goodUnits.length} units with scores 80+
 `;
 
     const blob = new Blob([reportText], { type: 'text/plain;charset=utf-8' });
@@ -368,11 +367,11 @@ Target: ${data?.targetText || ''}
             </Typography>
             
             <Paper variant="outlined" sx={{ p: 1, mb: 2, bgcolor: 'grey.50' }}>
-              <Typography variant="caption" component="pre">
-{`Line#	Risk	Reason
-5	high	Translation refers to pressure instead of temperature
-12	medium	Technical term translated incorrectly
-23	low	Minor style inconsistency`}
+              <Typography variant="caption" component="pre" sx={{ fontSize: '0.7rem' }}>
+{`Line#,ID,Source,Target,Semantic_Score,Quality_Category,Analysis_Notes
+1,16764,GUE Translations Master,GUE Übersetzungen Master,80,good,Good semantic preservation
+2,16765,Discover Scuba,Schnuppertauchen,45,poor,Significant semantic differences
+3,16766,Introduction,Einführung,80,good,Good semantic preservation`}
               </Typography>
             </Paper>
             
@@ -409,28 +408,28 @@ Target: ${data?.targetText || ''}
         </Step>
 
         <Step>
-          <StepLabel>Review Flagged Translations</StepLabel>
+          <StepLabel>Review Analysis Results</StepLabel>
           <StepContent>
             <Alert severity="success" sx={{ mb: 2 }}>
               <Typography variant="body2">
-                <strong>Analysis complete!</strong> Found {flaggedUnits.length} potentially problematic translations.
+                <strong>Analysis complete!</strong> Analyzed {flaggedUnits.length} translations.
               </Typography>
             </Alert>
             
             <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
               <Chip
-                label={`High Risk: ${flaggedUnits.filter(u => u.riskLevel === 'high').length}`}
+                label={`Poor: ${flaggedUnits.filter(u => u.qualityCategory === 'poor').length}`}
                 color="error"
                 size="small"
               />
               <Chip
-                label={`Medium Risk: ${flaggedUnits.filter(u => u.riskLevel === 'medium').length}`}
+                label={`Acceptable: ${flaggedUnits.filter(u => u.qualityCategory === 'acceptable').length}`}
                 color="warning"
                 size="small"
               />
               <Chip
-                label={`Low Risk: ${flaggedUnits.filter(u => u.riskLevel === 'low').length}`}
-                color="info"
+                label={`Good: ${flaggedUnits.filter(u => u.qualityCategory === 'good').length}`}
+                color="success"
                 size="small"
               />
             </Stack>
@@ -450,48 +449,64 @@ Target: ${data?.targetText || ''}
       {showResults && (
         <Paper elevation={2} sx={{ mt: 3, p: 2 }}>
           <Typography variant="h6" gutterBottom>
-            Flagged Translations
+            Semantic Analysis Results
           </Typography>
           
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Risk</TableCell>
+                  <TableCell>Score</TableCell>
+                  <TableCell>Quality</TableCell>
                   <TableCell>ID</TableCell>
                   <TableCell>Source</TableCell>
                   <TableCell>Target</TableCell>
-                  <TableCell>Reason</TableCell>
+                  <TableCell>Analysis</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {flaggedUnits
-                  .sort((a, b) => {
-                    const riskOrder = { high: 0, medium: 1, low: 2 };
-                    return riskOrder[a.riskLevel] - riskOrder[b.riskLevel];
-                  })
-                  .map((unit) => {
-                    const data = analysisData.find(a => a.lineNumber === unit.lineNumber);
-                    return (
-                      <TableRow key={unit.lineNumber}>
-                        <TableCell>
-                          <Chip
-                            label={unit.riskLevel.toUpperCase()}
-                            color={getRiskColor(unit.riskLevel)}
-                            size="small"
-                          />
-                        </TableCell>
-                        <TableCell>{unit.id}</TableCell>
-                        <TableCell sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {data?.sourceText}
-                        </TableCell>
-                        <TableCell sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {data?.targetText}
-                        </TableCell>
-                        <TableCell>{unit.reason}</TableCell>
-                      </TableRow>
-                    );
-                  })}
+                {flaggedUnits.map((unit) => (
+                  <TableRow 
+                    key={unit.lineNumber}
+                    sx={{ 
+                      backgroundColor: unit.qualityCategory === 'poor' ? 'error.lighter' : 'inherit'
+                    }}
+                  >
+                    <TableCell>
+                      <Chip
+                        label={unit.semanticScore}
+                        color={getScoreColor(unit.semanticScore)}
+                        size="small"
+                        variant="outlined"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={unit.qualityCategory.toUpperCase()}
+                        color={getQualityColor(unit.qualityCategory)}
+                        size="small"
+                      />
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '0.75rem' }}>{unit.id}</TableCell>
+                    <TableCell sx={{ maxWidth: 250, fontSize: '0.75rem' }}>
+                      <Tooltip title={unit.source}>
+                        <Typography variant="body2" noWrap>
+                          {unit.source}
+                        </Typography>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 250, fontSize: '0.75rem' }}>
+                      <Tooltip title={unit.target}>
+                        <Typography variant="body2" noWrap>
+                          {unit.target}
+                        </Typography>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell sx={{ maxWidth: 300, fontSize: '0.75rem' }}>
+                      {unit.analysisNotes}
+                    </TableCell>
+                  </TableRow>
+                ))}
               </TableBody>
             </Table>
           </TableContainer>
