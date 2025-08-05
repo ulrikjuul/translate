@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { CssBaseline, ThemeProvider, createTheme, ToggleButton, ToggleButtonGroup, Box, Divider, Typography } from '@mui/material';
-import { CompareArrows, ViewList } from '@mui/icons-material';
+import { CompareArrows, ViewList, Psychology } from '@mui/icons-material';
 import { FileUploadSection } from './components/FileUpload';
 import { ComparisonView } from './components/ComparisonView';
 import { AllStringsView } from './components/AllStringsView';
 import { ExportActions } from './components/ExportActions';
 import { AutoLoadFiles } from './components/AutoLoadFiles';
 import { AdditionalFileUpload } from './components/AdditionalFileUpload';
+import { SemanticAnalysis } from './components/SemanticAnalysis';
 
 const theme = createTheme({
   palette: {
@@ -21,9 +22,9 @@ const theme = createTheme({
 });
 
 function App() {
-  const [viewMode, setViewMode] = useState<'comparison' | 'allStrings'>('comparison');
+  const [viewMode, setViewMode] = useState<'comparison' | 'allStrings' | 'semantic'>('comparison');
   
-  const handleViewModeChange = (event: React.MouseEvent<HTMLElement>, newMode: 'comparison' | 'allStrings' | null) => {
+  const handleViewModeChange = (event: React.MouseEvent<HTMLElement>, newMode: 'comparison' | 'allStrings' | 'semantic' | null) => {
     if (newMode !== null) {
       setViewMode(newMode);
     }
@@ -36,16 +37,20 @@ function App() {
         px: { xs: 1, sm: 2, md: 3 }, 
         py: { xs: 2, sm: 3, md: 4 }
       }}>
-        <AutoLoadFiles />
-        
-        <AdditionalFileUpload />
-        
-        <Divider sx={{ my: 3 }} />
-        
-        <Typography variant="h6" gutterBottom align="center">
-          Or Upload Files Manually
-        </Typography>
-        <FileUploadSection />
+        {viewMode !== 'semantic' && (
+          <>
+            <AutoLoadFiles />
+            
+            <AdditionalFileUpload />
+            
+            <Divider sx={{ my: 3 }} />
+            
+            <Typography variant="h6" gutterBottom align="center">
+              Or Upload Files Manually
+            </Typography>
+            <FileUploadSection />
+          </>
+        )}
         
         <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
           <ToggleButtonGroup
@@ -63,17 +68,21 @@ function App() {
               All Strings View (All {' '}
               <span style={{ fontWeight: 'bold' }}>17,000+</span> Strings)
             </ToggleButton>
+            <ToggleButton value="semantic" aria-label="semantic analysis">
+              <Psychology sx={{ mr: 1 }} />
+              Semantic Analysis
+            </ToggleButton>
           </ToggleButtonGroup>
         </Box>
         
-        {viewMode === 'comparison' ? (
+        {viewMode === 'comparison' && (
           <>
             <ComparisonView />
             <ExportActions />
           </>
-        ) : (
-          <AllStringsView />
         )}
+        {viewMode === 'allStrings' && <AllStringsView />}
+        {viewMode === 'semantic' && <SemanticAnalysis />}
       </Box>
     </ThemeProvider>
   );
