@@ -489,30 +489,41 @@ GOOD QUALITY TRANSLATIONS: ${goodUnits.length} units with scores 80+
               </Typography>
             </Alert>
             
-            <FormControl sx={{ mb: 3, width: '100%' }}>
-              <FormLabel>
-                Poor Quality Threshold: {poorThreshold}
-                <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
-                  (Scores below {poorThreshold} are marked as poor quality)
-                </Typography>
-              </FormLabel>
-              <Slider
-                value={poorThreshold}
-                onChange={(e, value) => setPoorThreshold(value as number)}
-                min={30}
-                max={80}
-                step={5}
-                marks={[
-                  { value: 30, label: '30' },
-                  { value: 50, label: '50' },
-                  { value: 60, label: '60' },
-                  { value: 70, label: '70' },
-                  { value: 80, label: '80' }
-                ]}
-                valueLabelDisplay="auto"
-                color="warning"
-              />
-            </FormControl>
+            <Box sx={{ mb: 3, width: '100%' }}>
+              <Typography variant="body2" gutterBottom>
+                <strong>Poor Quality Threshold:</strong> {poorThreshold}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+                Scores below {poorThreshold} are marked as poor quality
+              </Typography>
+              <Box sx={{ px: 2, mt: 2 }}>
+                <Slider
+                  value={poorThreshold}
+                  onChange={(event, newValue) => {
+                    if (typeof newValue === 'number') {
+                      setPoorThreshold(newValue);
+                    }
+                  }}
+                  onChangeCommitted={(event, newValue) => {
+                    if (typeof newValue === 'number') {
+                      setPoorThreshold(newValue);
+                    }
+                  }}
+                  min={30}
+                  max={80}
+                  step={5}
+                  marks={[
+                    { value: 30, label: '30' },
+                    { value: 50, label: '50' },
+                    { value: 60, label: '60' },
+                    { value: 70, label: '70' },
+                    { value: 80, label: '80' }
+                  ]}
+                  valueLabelDisplay="auto"
+                  color="warning"
+                />
+              </Box>
+            </Box>
             
             <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
               <Chip
